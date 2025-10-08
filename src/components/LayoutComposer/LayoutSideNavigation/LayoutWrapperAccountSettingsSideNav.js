@@ -138,6 +138,14 @@ const LayoutWrapperAccountSettingsSideNav = props => {
     },
     ...payoutDetailsMaybe,
     ...paymentMethodsMaybe,
+    {
+      text: <FormattedMessage id="LayoutWrapperAccountSettingsSideNav.shippingAddressTabTitle" />,
+      selected: currentPage === 'ShippingAddressPage',
+      id: 'ShippingAddressPage',
+      linkProps: {
+        name: 'ShippingAddressPage',
+      },
+    },
   ];
 
   return <TabNav rootClassName={css.tabs} tabRootClassName={css.tab} tabs={tabs} />;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import classNames from 'classnames';
 
 // Import util modules
@@ -17,7 +17,7 @@ import {
 import { isBookingProcessAlias } from '../../../../transactions/transaction';
 
 // Import shared components
-import { H3, ListingLink } from '../../../../components';
+import { H3, ListingLink, Modal, ShippingAddressForm } from '../../../../components';
 
 // Import modules from this directory
 import ErrorMessage from './ErrorMessage';
@@ -283,6 +283,8 @@ const EditListingDetailsPanel = props => {
     config,
   } = props;
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const classes = classNames(rootClassName || css.root, className);
   const { publicData, state } = listing?.attributes || {};
   const listingTypes = config.listing.listingTypes;
@@ -313,6 +315,10 @@ const EditListingDetailsPanel = props => {
   const canShowEditListingDetailsForm =
     hasListingTypesSet && (!hasExistingListingType || hasValidExistingListingType);
   const isPublished = listing?.id && state !== LISTING_STATE_DRAFT;
+
+  const onViewShippingAddress = () => {
+    setIsModalOpen(true);
+  };
 
   return (
     <main className={classes}>
@@ -400,6 +406,7 @@ const EditListingDetailsPanel = props => {
           updateInProgress={updateInProgress}
           fetchErrors={errors}
           autoFocus
+          onViewShippingAddress={onViewShippingAddress}
         />
       ) : (
         <ErrorMessage
@@ -408,6 +415,17 @@ const EditListingDetailsPanel = props => {
           invalidExistingListingType={!hasValidExistingListingType}
         />
       )}
+      <Modal
+        id="ShippingAddress"
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+        }}
+        onManageDisableScrolling={props.onManageDisableScrolling}
+        usePortal
+      >
+        <ShippingAddressForm />
+      </Modal>
     </main>
   );
 };

@@ -57,6 +57,7 @@ import {
 } from './TransactionPage.duck';
 import css from './TransactionPage.module.css';
 import { getCurrentUserTypeRoles, hasPermissionToViewData } from '../../util/userHelpers.js';
+import useGetShippingLabel from '../../hooks/useGetShippingLabel.js';
 
 // Submit dispute and close the review modal
 const onDisputeOrder = (
@@ -474,7 +475,7 @@ export const TransactionPageComponent = props => {
   const showBookingLocation =
     isBookingProcess(stateData.processName) &&
     process?.hasPassedState(process?.states?.ACCEPTED, transaction);
-
+  const shippingLabelDetails = useGetShippingLabel(transaction?.id?.uuid);
   // TransactionPanel is presentational component
   // that currently handles showing everything inside layout's main view area.
   const panel = isDataAvailable ? (
@@ -500,6 +501,7 @@ export const TransactionPageComponent = props => {
       showBookingLocation={showBookingLocation}
       hasViewingRights={hasViewingRights}
       showListingImage={showListingImage}
+      shippingLabelDetails={shippingLabelDetails}
       activityFeed={
         <ActivityFeed
           messages={messages}

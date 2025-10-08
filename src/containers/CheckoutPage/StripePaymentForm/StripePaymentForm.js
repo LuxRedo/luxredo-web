@@ -207,43 +207,6 @@ const checkOnetimePaymentFields = (
   };
 };
 
-const LocationOrShippingDetails = props => {
-  const {
-    askShippingDetails,
-    showPickUpLocation,
-    showLocation,
-    listingLocation,
-    formApi,
-    locale,
-    isFuzzyLocation,
-    intl,
-  } = props;
-
-  const locationDetails = listingLocation?.building
-    ? `${listingLocation.building}, ${listingLocation.address}`
-    : listingLocation?.address
-    ? listingLocation.address
-    : intl.formatMessage({ id: 'StripePaymentForm.locationUnknown' });
-
-  return askShippingDetails ? (
-    <ShippingDetails intl={intl} formApi={formApi} locale={locale} />
-  ) : showPickUpLocation ? (
-    <div className={css.locationWrapper}>
-      <Heading as="h3" rootClassName={css.heading}>
-        <FormattedMessage id="StripePaymentForm.pickupDetailsTitle" />
-      </Heading>
-      <p className={css.locationDetails}>{locationDetails}</p>
-    </div>
-  ) : showLocation && !isFuzzyLocation ? (
-    <div className={css.locationWrapper}>
-      <Heading as="h3" rootClassName={css.heading}>
-        <FormattedMessage id="StripePaymentForm.locationDetailsTitle" />
-      </Heading>
-      <p className={css.locationDetails}>{locationDetails}</p>
-    </div>
-  ) : null;
-};
-
 const initialState = {
   error: null,
   cardValueValid: false,
@@ -360,15 +323,15 @@ class StripePaymentForm extends Component {
 
   updateBillingDetailsToMatchShippingAddress(shouldFill) {
     const formApi = this.finalFormAPI;
-    const values = formApi.getState()?.values || {};
+    const values = this.props.shippingAddress;
     formApi.batch(() => {
-      formApi.change('name', shouldFill ? values.recipientName : '');
-      formApi.change('addressLine1', shouldFill ? values.recipientAddressLine1 : '');
-      formApi.change('addressLine2', shouldFill ? values.recipientAddressLine2 : '');
-      formApi.change('postal', shouldFill ? values.recipientPostal : '');
-      formApi.change('city', shouldFill ? values.recipientCity : '');
-      formApi.change('state', shouldFill ? values.recipientState : '');
-      formApi.change('country', shouldFill ? values.recipientCountry : '');
+      formApi.change('name', shouldFill ? values.name : '');
+      formApi.change('addressLine1', shouldFill ? values.street1 : '');
+      formApi.change('addressLine2', shouldFill ? values.streetNo : '');
+      formApi.change('postal', shouldFill ? values.zip : '');
+      formApi.change('city', shouldFill ? values.city : '');
+      formApi.change('state', shouldFill ? values.state : '');
+      formApi.change('country', shouldFill ? values.country : '');
     });
   }
 
@@ -466,17 +429,12 @@ class StripePaymentForm extends Component {
       form: formApi,
       hasHandledCardPayment,
       defaultPaymentMethod,
-      listingLocation,
       askShippingDetails,
-      showLocation,
-      showPickUpLocation,
       totalPrice,
       locale,
       stripePublishableKey,
       marketplaceName,
       isBooking,
-      isFuzzyLocation,
-      values,
     } = formRenderProps;
 
     this.finalFormAPI = formApi;
@@ -564,17 +522,6 @@ class StripePaymentForm extends Component {
 
     return hasStripeKey ? (
       <Form className={classes} onSubmit={handleSubmit} enforcePagePreloadFor="OrderDetailsPage">
-        <LocationOrShippingDetails
-          askShippingDetails={askShippingDetails}
-          showPickUpLocation={showPickUpLocation}
-          showLocation={showLocation}
-          listingLocation={listingLocation}
-          isFuzzyLocation={isFuzzyLocation}
-          formApi={formApi}
-          locale={locale}
-          intl={intl}
-        />
-
         {billingDetailsNeeded && !loadingData ? (
           <React.Fragment>
             {hasDefaultPaymentMethod ? (

@@ -264,6 +264,8 @@
   display: none;
 
   @media (--viewportLarge) {
+    position: sticky;
+    top: 40px;
     flex-shrink: 0;
     display: block;
     /* Dimensions */
@@ -349,6 +351,17 @@
     padding-bottom: 20px;
     margin: 0 48px;
   }
+}
+
+.loadingBreakdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px;
+  width: 100%;
+  font-size: 14px;
+  text-align: center;
 }
 
 /* ChekcoutPageWithInquiryProcess */
