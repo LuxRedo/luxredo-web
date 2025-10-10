@@ -71,7 +71,7 @@ const getShippingRates = async (req, res) => {
         distanceUnit: dimension_unit,
       },
     ];
-    console.log({ parcels });
+
     // Create shipment and get rates
     const shipment = await ShippingServices.shipments.create({
       addressFrom: customerAddress,

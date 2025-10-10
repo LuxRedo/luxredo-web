@@ -28,15 +28,12 @@ const handleAfterInitiateTransaction = async (orderData, bodyParams, transaction
         async: false,
       });
 
-      const newestTransaction = await ShippingServices.transactions.get(
-        shippingTransaction.objectId
-      );
       await updateTransactionMetadata(transaction.id, {
         shippingDetails: {
-          transactionId: newestTransaction.objectId,
-          trackingNumber: newestTransaction.trackingNumber,
-          trackingUrl: newestTransaction.trackingUrlProvider,
-          labelUrl: newestTransaction.labelUrl,
+          transactionId: shippingTransaction.objectId,
+          trackingNumber: shippingTransaction.trackingNumber,
+          trackingUrl: shippingTransaction.trackingUrlProvider,
+          labelUrl: shippingTransaction.labelUrl,
         },
       });
     }
