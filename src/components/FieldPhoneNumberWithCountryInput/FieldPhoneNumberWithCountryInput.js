@@ -3,7 +3,6 @@ import { Field } from 'react-final-form';
 import classNames from 'classnames';
 import PhoneInput from 'react-phone-number-input';
 import { ValidationError } from '../../components';
-import 'react-phone-number-input/style.css';
 
 import css from './FieldPhoneNumberWithCountryInput.module.css';
 
