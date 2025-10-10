@@ -49,3 +49,8 @@
 .success {
   color: var(--colorSuccess);
 }
+
+.countryField select:disabled {
+  opacity: 1;
+  color: var(--colorGrey900);
+}

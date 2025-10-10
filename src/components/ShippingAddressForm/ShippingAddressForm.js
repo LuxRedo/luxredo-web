@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import classNames from 'classnames';
 import { connect } from 'react-redux';
 import { compose } from 'redux';
@@ -81,10 +81,16 @@ export const ShippingAddressFormComponent = props => {
 
   // Use the language set in config.localization.locale to get the correct translations of the country names
   const countryCodes = getCountryCodes(config.localization.locale);
-
+  const initialValues = useMemo(() => {
+    return {
+      ...props.initialValues,
+      country: props.initialValues?.country || 'US',
+    };
+  }, [JSON.stringify(props.initialValues || {}), JSON.stringify(countryCodes)]);
   return (
     <FinalForm
       {...props}
+      initialValues={initialValues}
       onSubmit={async values => {
         const { onSubmit } = props;
         const response = await onSubmit(values);
@@ -206,9 +212,10 @@ export const ShippingAddressFormComponent = props => {
               <FieldSelect
                 id={`${formId}.country`}
                 name="country"
-                className={css.field}
+                className={classNames(css.field, css.countryField)}
                 label={countryLabel}
                 validate={countryRequired}
+                disabled
               >
                 <option disabled value="">
                   {countryPlaceholder}
