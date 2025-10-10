@@ -63,6 +63,10 @@ const transitionPrivilegedTransaction = async (req, res) => {
       ...bodyParams,
       params: {
         ...restParams,
+        protectedData: {
+          ...restParams.protectedData,
+          ...(orderData?.shippingRateId ? { shippingRateId: orderData.shippingRateId } : {}),
+        },
         lineItems,
       },
     };
@@ -85,7 +89,7 @@ const transitionPrivilegedTransaction = async (req, res) => {
 
     if (!isSpeculative) {
       const [transaction] = denormalisedResponseEntities(apiResponse);
-      TransactionServices.handleAfterInitiateTransaction(orderData, bodyParams, transaction);
+      await TransactionServices.handleAfterInitiateTransaction(orderData, bodyParams, transaction);
     }
     // Send response
     res

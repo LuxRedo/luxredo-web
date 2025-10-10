@@ -2,6 +2,8 @@
  * Shipping API utility functions
  */
 
+const isEmpty = require('lodash/isEmpty');
+
 /**
  * Parse Shippo API error response
  * @param {Object} error - Error object from Shippo API
@@ -57,21 +59,30 @@ const validateRequiredFields = (body, requiredFields) => {
 };
 
 /**
- * Extract shipping address ID from user profile
+ * Extract shipping address from user profile
  * @param {Object} user - User object
- * @returns {string|null} Shipping address ID or null if not found
+ * @returns {Object|null} Shipping address object or null if not found
  */
-const getAddressId = user => {
+const getAddress = user => {
   const { attributes } = user;
   const { profile } = attributes;
   const { protectedData } = profile;
   const { shippingAddress } = protectedData;
-  return shippingAddress?.id;
+  if (isEmpty(shippingAddress)) {
+    return null;
+  }
+  const { streetNo = '', ...rest } = shippingAddress;
+
+  return {
+    ...rest,
+    ...(streetNo ? { streetNo } : {}),
+    validate: true,
+  };
 };
 
 module.exports = {
   parseShippingError,
   createSuccessResponse,
   validateRequiredFields,
-  getAddressId,
+  getAddress,
 };

@@ -25,22 +25,19 @@ const handleAfterInitiateTransaction = async (orderData, bodyParams, transaction
       const shippingTransaction = await ShippingServices.transactions.create({
         rate: orderData?.shippingRateId,
         metadata: `Sharetribe Transaction ID #${transaction.id.uuid}`,
+        async: false,
       });
 
-      // Create shipping transaction in background
-      // Need to waiting for few second to ignore conflict error return from Sharetribe
-      new Promise(resolve => setTimeout(resolve, 5000)).then(async () => {
-        const newestTransaction = await ShippingServices.transactions.get(
-          shippingTransaction.objectId
-        );
-        await updateTransactionMetadata(transaction.id, {
-          shippingDetails: {
-            transactionId: newestTransaction.objectId,
-            trackingNumber: newestTransaction.trackingNumber,
-            trackingUrl: newestTransaction.trackingUrlProvider,
-            labelUrl: newestTransaction.labelUrl,
-          },
-        });
+      const newestTransaction = await ShippingServices.transactions.get(
+        shippingTransaction.objectId
+      );
+      await updateTransactionMetadata(transaction.id, {
+        shippingDetails: {
+          transactionId: newestTransaction.objectId,
+          trackingNumber: newestTransaction.trackingNumber,
+          trackingUrl: newestTransaction.trackingUrlProvider,
+          labelUrl: newestTransaction.labelUrl,
+        },
       });
     }
   } catch (error) {

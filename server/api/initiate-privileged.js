@@ -61,6 +61,10 @@ const initiatePrivilegedTransaction = async (req, res) => {
       ...bodyParams,
       params: {
         ...params,
+        protectedData: {
+          ...params.protectedData,
+          ...(orderData?.shippingRateId ? { shippingRateId: orderData.shippingRateId } : {}),
+        },
         lineItems,
       },
     };
@@ -74,7 +78,7 @@ const initiatePrivilegedTransaction = async (req, res) => {
 
     if (!isSpeculative) {
       const [transaction] = denormalisedResponseEntities(apiResponse);
-      TransactionServices.handleAfterInitiateTransaction(orderData, bodyParams, transaction);
+      await TransactionServices.handleAfterInitiateTransaction(orderData, bodyParams, transaction);
     }
 
     // Send response
