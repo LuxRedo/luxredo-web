@@ -1,2 +1,2 @@
-export { default as useValidateShippingAddress } from './useValidateShippingAddress';
+export { default as useUpdateShippingAddress } from './useUpdateShippingAddress';
 export { default as useGetShippingRates } from './useGetShippingRates';

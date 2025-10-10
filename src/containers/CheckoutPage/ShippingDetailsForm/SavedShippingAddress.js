@@ -1,7 +1,7 @@
 import classNames from 'classnames';
 import React from 'react';
 import { FormattedMessage } from 'react-intl';
-import { Button } from '../../../components';
+import { PrimaryButton } from '../../../components';
 import css from './SavedShippingAddress.module.css';
 
 /**
@@ -33,18 +33,18 @@ const SavedShippingAddress = ({
           <p className={css.street}>{`${street1} ${streetNo ?? ''}`}</p>
           <p className={css.city}>{`${city}, ${state} ${zip}`}</p>
         </div>
-        <Button onClick={onEdit} type="button" className={css.changeButton}>
+        <PrimaryButton onClick={onEdit} type="button" className={css.changeButton}>
           <FormattedMessage id="SavedShippingAddress.change" />
-        </Button>
+        </PrimaryButton>
       </div>
-      <Button
+      <PrimaryButton
         onClick={onNextStep}
         type="button"
         className={css.nextStepButton}
         disabled={disabledNextStep}
       >
         <FormattedMessage id="SavedShippingAddress.nextShippingMethod" />
-      </Button>
+      </PrimaryButton>
     </div>
   );
 };

@@ -110,6 +110,7 @@ const EditListingWizardTab = props => {
     tabSubmitButtonText,
     config,
     routeConfiguration,
+    currentUser,
   } = props;
 
   const { type } = params;
@@ -192,6 +193,7 @@ const EditListingWizardTab = props => {
           {...panelProps(DETAILS)}
           onListingTypeChange={onListingTypeChange}
           config={config}
+          currentUser={currentUser}
         />
       );
     }

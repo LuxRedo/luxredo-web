@@ -74,3 +74,16 @@
   text-align: center;
   padding: 60px 0;
 }
+
+.errorMessage {
+  color: var(--colorFail);
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.errorMessageTitle {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: var(--colorFail);
+}

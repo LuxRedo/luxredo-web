@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import classNames from 'classnames';
 import { connect } from 'react-redux';
 import { compose } from 'redux';
-import { string } from 'prop-types';
+import { string, bool, func } from 'prop-types';
 import { Form as FinalForm } from 'react-final-form';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 import isEqual from 'lodash/isEqual';
 
 import {
@@ -12,27 +12,29 @@ import {
   FieldTextInput,
   FieldSelect,
   H3,
-  Button,
   FieldPhoneNumberWithCountryInput,
+  PrimaryButton,
 } from '..';
 import * as validators from '../../util/validators';
 import getCountryCodes from '../../translations/countryCodes';
 import { useConfiguration } from '../../context/configurationContext';
 import css from './ShippingAddressForm.module.css';
-import { validateAddress } from './ShippingAddressForm.duck';
+import { updateShippingAddress } from './ShippingAddressForm.duck';
 
 /**
  * ShippingAddressFormComponent is a component that allows the user to enter their shipping address.
  * It is used in the ShippingDetailsForm component.
- * @param {Object} onValidateAddress - The function to call when the address is validated.
+ * @param {Object} onUpdateShippingAddress - The function to call when the address is validated.
  * @param {Object} initialValues - The initial values for the form.
- * @param {Object} validateAddressInProgress - The state of the validate address in progress.
- * @param {Object} validateAddressSuccess - The state of the validate address success.
- * @param {Object} validateAddressError - The state of the validate address error.
+ * @param {Object} updateShippingAddressInProgress - The state of the validate address in progress.
+ * @param {Object} updateShippingAddressSuccess - The state of the validate address success.
+ * @param {Object} updateShippingAddressError - The state of the validate address error.
  * @param {Object} className - The class name for the form.
  * @param {Object} rootClassName - The root class name for the form.
  * @param {boolean} showHeading - Whether to show the heading.
  * @param {Object} submitTitle - The title for the submit button.
+ * @param {boolean} showShippingAddressFormError - Whether to show the shipping address form error.
+ * @param {Function} successCallback - The function to call when the address is updated successfully.
  * @returns {JSX.Element} - The ShippingAddressFormComponent.
  */
 export const ShippingAddressFormComponent = props => {
@@ -42,7 +44,7 @@ export const ShippingAddressFormComponent = props => {
 
   const title = intl.formatMessage({ id: 'ShippingAddressForm.title' });
   const requireText = intl.formatMessage({ id: 'ShippingAddressForm.requireText' });
-  const validateButton = intl.formatMessage({ id: 'ShippingAddressForm.validateButton' });
+  const updateButton = intl.formatMessage({ id: 'ShippingAddressForm.updateButton' });
 
   const nameLabel = intl.formatMessage({ id: 'ShippingAddressForm.nameLabel' });
   const namePlaceholder = intl.formatMessage({ id: 'ShippingAddressForm.namePlaceholder' });
@@ -86,8 +88,9 @@ export const ShippingAddressFormComponent = props => {
       onSubmit={async values => {
         const { onSubmit } = props;
         const response = await onSubmit(values);
-        if (response) {
+        if (response?.data?.data) {
           setSubmittedValues(values);
+          props.successCallback?.();
         }
       }}
       render={fieldRenderProps => {
@@ -97,11 +100,12 @@ export const ShippingAddressFormComponent = props => {
           formId,
           handleSubmit,
           form,
-          validateAddressError,
-          validateAddressInProgress,
+          updateShippingAddressError,
+          updateShippingAddressInProgress,
           showHeading = true,
           submitTitle,
           values,
+          showShippingAddressFormError,
         } = fieldRenderProps;
 
         const submittedOnce = Object.keys(submittedValues).length > 0;
@@ -112,7 +116,11 @@ export const ShippingAddressFormComponent = props => {
         return (
           <Form className={classes} onSubmit={handleSubmit}>
             {showHeading && <H3>{title}</H3>}
-
+            {showShippingAddressFormError && (
+              <p className={css.error}>
+                {intl.formatMessage({ id: 'ShippingAddressForm.formError' })}
+              </p>
+            )}
             <div className={css.formRow}>
               <FieldTextInput
                 id={`${formId}.name`}
@@ -215,21 +223,21 @@ export const ShippingAddressFormComponent = props => {
               </FieldSelect>
             </div>
 
-            {validateAddressError && (
+            {updateShippingAddressError && (
               <p className={css.error}>
-                {validateAddressError?.error?.error ||
+                {updateShippingAddressError?.error?.error ||
                   intl.formatMessage({ id: 'ShippingAddressForm.validateError' })}
               </p>
             )}
 
-            <Button
+            <PrimaryButton
               className={css.validateButton}
               type="submit"
               ready={pristineSinceLastSubmit}
-              inProgress={validateAddressInProgress}
+              inProgress={updateShippingAddressInProgress}
             >
-              {submitTitle ?? validateButton}
-            </Button>
+              {submitTitle ?? updateButton}
+            </PrimaryButton>
           </Form>
         );
       }}
@@ -240,30 +248,31 @@ export const ShippingAddressFormComponent = props => {
 ShippingAddressFormComponent.propTypes = {
   className: string,
   rootClassName: string,
+  showShippingAddressFormError: bool,
+  successCallback: func,
 };
 
 const mapStateToProps = state => {
   const {
-    validateAddressInProgress,
-    validateAddressSuccess,
-    validateAddressError,
+    updateShippingAddressInProgress,
+    updateShippingAddressSuccess,
+    updateShippingAddressError,
   } = state.ShippingAddressForm;
 
   const currentUser = state.user.currentUser;
 
   const initialValues = currentUser?.attributes?.profile?.protectedData?.shippingAddress;
-  delete initialValues?.id;
 
   return {
     initialValues,
-    validateAddressInProgress,
-    validateAddressSuccess,
-    validateAddressError,
+    updateShippingAddressInProgress,
+    updateShippingAddressSuccess,
+    updateShippingAddressError,
   };
 };
 
 const mapDispatchToProps = dispatch => ({
-  onSubmit: address => dispatch(validateAddress(address)),
+  onSubmit: address => dispatch(updateShippingAddress(address)),
 });
 
 const ShippingAddressForm = compose(

@@ -41,7 +41,7 @@ import MobileOrderBreakdown from './MobileOrderBreakdown';
 import css from './CheckoutPage.module.css';
 import ShippingDetailsForm from './ShippingDetailsForm/ShippingDetailsForm.js';
 import ShippingMethodForm from './ShippingMethodForm/ShippingMethodForm.js';
-import { useGetShippingRates, useValidateShippingAddress } from '../../hooks';
+import { useGetShippingRates, useUpdateShippingAddress } from '../../hooks';
 import Spinner from '../../components/IconSpinner/IconSpinner.js';
 
 // Stripe PaymentIntent statuses, where user actions are already completed
@@ -470,7 +470,7 @@ export const CheckoutPageWithPayment = props => {
   const txBookingMaybe = tx?.booking?.id ? { booking: tx.booking, timeZone } : {};
 
   const {
-    shippingRates,
+    shipment,
     getShippingRatesInProgress,
     getShippingRatesError,
     hasEnoughShippingAddressFields,
@@ -481,10 +481,10 @@ export const CheckoutPageWithPayment = props => {
   });
 
   const {
-    onValidateShippingAddress,
-    validateAddressError,
-    validateAddressInProgress,
-  } = useValidateShippingAddress({
+    onUpdateShippingAddress,
+    updateShippingAddressError,
+    updateShippingAddressInProgress,
+  } = useUpdateShippingAddress({
     currentUser,
   });
 
@@ -608,13 +608,6 @@ export const CheckoutPageWithPayment = props => {
     setSelectedShippingRate(rate);
   };
 
-  const onSubmitShippingDetails = async values => {
-    const validateAddressResponse = await onValidateShippingAddress(values);
-    if (validateAddressResponse?.validationResults?.isValid) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
   const shippingAddress = currentUser?.attributes?.profile?.protectedData?.shippingAddress;
 
   return (
@@ -668,10 +661,9 @@ export const CheckoutPageWithPayment = props => {
                   {currentStep === 1 && (
                     <ShippingDetailsForm
                       currentUser={currentUser}
-                      onSubmit={onSubmitShippingDetails}
-                      onValidateAddress={onValidateShippingAddress}
-                      validateAddressInProgress={validateAddressInProgress}
-                      validateAddressError={validateAddressError}
+                      onSubmit={onUpdateShippingAddress}
+                      updateShippingAddressInProgress={updateShippingAddressInProgress}
+                      updateShippingAddressError={updateShippingAddressError}
                       onNextStep={() => {
                         setCurrentStep(currentStep + 1);
                       }}
@@ -680,7 +672,7 @@ export const CheckoutPageWithPayment = props => {
                   )}
                   {currentStep === 2 && (
                     <ShippingMethodForm
-                      shippingRates={shippingRates}
+                      shipment={shipment}
                       getShippingRatesInProgress={getShippingRatesInProgress}
                       getShippingRatesError={getShippingRatesError}
                       onSelectShippingRate={onSelectShippingRate}

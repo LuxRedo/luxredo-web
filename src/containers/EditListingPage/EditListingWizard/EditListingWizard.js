@@ -95,11 +95,8 @@ const tabsForBookingProcess = (processTabs, listingTypeConfig) => {
 };
 // Pick only allowed purchase tabs (delivery could be omitted)
 const tabsForPurchaseProcess = (processTabs, listingTypeConfig) => {
-  const isDeliveryDisabled =
-    !displayDeliveryPickup(listingTypeConfig) && !displayDeliveryShipping(listingTypeConfig);
-  const deliveryTabMaybe = isDeliveryDisabled ? [DELIVERY] : [];
   const styleOrPhotosTab = !requireListingImage(listingTypeConfig) ? [PHOTOS] : [STYLE];
-  const disallowedTabs = [...deliveryTabMaybe, ...styleOrPhotosTab];
+  const disallowedTabs = [DELIVERY, ...styleOrPhotosTab];
   return getTabs(processTabs, disallowedTabs);
 };
 // Pick only allowed inquiry tabs (location and pricing could be omitted)
@@ -694,6 +691,7 @@ class EditListingWizard extends Component {
                 onManageDisableScrolling={onManageDisableScrolling}
                 config={config}
                 routeConfiguration={routeConfiguration}
+                currentUser={currentUser}
               />
             );
           })}

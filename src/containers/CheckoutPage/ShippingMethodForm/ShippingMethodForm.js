@@ -2,19 +2,75 @@ import React from 'react';
 import css from './ShippingMethodForm.module.css';
 import Spinner from '../../../components/IconSpinner/IconSpinner';
 import classNames from 'classnames';
-import { Button } from '../../../components';
-import { FormattedMessage } from '../../../util/reactIntl';
+import { PrimaryButton } from '../../../components';
+import { FormattedMessage, useIntl } from '../../../util/reactIntl';
+import { formatMoneyFromNumber } from '../../../util/currency';
 
-const formatMoneyWithCurrency = (value, currency) => {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency,
-  }).format(value);
+const getShippingRateErrorMessages = shipment => {
+  if (!shipment || !shipment?.addressFrom || !shipment?.addressTo) {
+    return {
+      addressFromMessages: [],
+      addressToMessages: [],
+    };
+  }
+  const addressFrom = shipment?.addressFrom;
+  const addressTo = shipment?.addressTo;
+  const addressFromMessages = [];
+  const addressToMessages = [];
+  const addressFromValidationResults = addressFrom?.validationResults;
+  const addressToValidationResults = addressTo?.validationResults;
+  if (!addressFromValidationResults?.isValid) {
+    addressFromMessages.push(
+      ...addressFromValidationResults?.messages
+        ?.filter(message => message.type.includes('_error') || message.type.includes('_warning'))
+        .map(message => message.text)
+    );
+  }
+  if (!addressToValidationResults?.isValid) {
+    addressToMessages.push(
+      ...addressToValidationResults?.messages
+        ?.filter(
+          message => message?.type?.includes('_error') || message?.type?.includes('_warning')
+        )
+        .map(message => message.text)
+    );
+  }
+
+  return {
+    addressFromMessages,
+    addressToMessages,
+  };
+};
+
+const getFormattedErrorMessage = error => {
+  if (!error) {
+    return {
+      errorMessagesTo: [],
+      errorMessagesFrom: [],
+    };
+  }
+  const errorBody = JSON.parse(error.error);
+  const { address_to: addressTo, address_from: addressFrom } = errorBody;
+  const errorMessagesTo = addressTo?.map(item => Object.values(item || {})).flat();
+  const errorMessagesFrom = addressFrom?.map(item => Object.values(item || {})).flat();
+  return {
+    errorMessagesTo,
+    errorMessagesFrom,
+  };
+};
+
+const getErrorMessageIfNoRates = shipment => {
+  const rates = shipment?.rates || [];
+  if (rates?.length === 0) {
+    const { messages } = shipment;
+    return messages.map(message => message.text);
+  }
+  return [];
 };
 
 /**
  * @param {Object} props
- * @param {Object[]} props.shippingRates
+ * @param {Object[]} props.shipment
  * @param {boolean} props.getShippingRatesInProgress
  * @param {Object} props.getShippingRatesError
  * @param {Function} props.onSelectShippingRate
@@ -23,7 +79,7 @@ const formatMoneyWithCurrency = (value, currency) => {
  * @param {boolean} props.disabledNextStep - Whether the next step is disabled
  */
 const ShippingMethodForm = ({
-  shippingRates,
+  shipment,
   getShippingRatesInProgress,
   getShippingRatesError,
   onSelectShippingRate,
@@ -31,20 +87,66 @@ const ShippingMethodForm = ({
   onNextStep,
   disabledNextStep,
 }) => {
-  if (getShippingRatesError) {
-    return <div className={css.error}>{getShippingRatesError.message ?? 'Unknown error'}</div>;
-  }
+  const intl = useIntl();
 
   if (getShippingRatesInProgress) {
     return <Spinner />;
   }
+  const shippingRates = shipment.rates
+    ? shipment.rates.sort((a, b) => Number(a.amount) - Number(b.amount))
+    : [];
+  const { addressFromMessages, addressToMessages } = getShippingRateErrorMessages(shipment);
+  const { errorMessagesTo, errorMessagesFrom } = getFormattedErrorMessage(getShippingRatesError);
+
+  const fromMessages = addressFromMessages?.length > 0 ? addressFromMessages : errorMessagesFrom;
+  const toMessages = addressToMessages?.length > 0 ? addressToMessages : errorMessagesTo;
+  const noRatesMessages = getErrorMessageIfNoRates(shipment);
 
   return (
     <div className={css.ratesContainer}>
-      {shippingRates.length === 0 ? (
-        <div className={css.noRates}>
-          <FormattedMessage id="ShippingMethodForm.noRates" />
+      {noRatesMessages?.length > 0 && (
+        <div className={css.noRatesContainer}>
+          <p className={css.errorMessageTitle}>
+            <FormattedMessage id="ShippingMethodForm.noRatesWithErrors" />
+          </p>
+          <div className={css.noRatesMessages}>
+            {noRatesMessages.map((message, index) => (
+              <div className={css.errorMessage} key={message}>
+                {noRatesMessages.length > 1 ? `${index + 1}.` : ''} {message}
+              </div>
+            ))}
+          </div>
         </div>
+      )}
+      {fromMessages?.length > 0 || toMessages?.length > 0 ? (
+        fromMessages?.length > 0 || toMessages?.length > 0 ? (
+          <div className={css.errorMessageContainer}>
+            {fromMessages?.length > 0 && (
+              <p className={css.errorMessageTitle}>
+                <FormattedMessage id="ShippingMethodForm.addressFromError" />
+              </p>
+            )}
+            {fromMessages?.map((message, index) => (
+              <div className={css.errorMessage} key={message}>
+                {fromMessages.length > 1 ? `${index + 1}.` : ''} {message}
+              </div>
+            ))}
+            {toMessages?.length > 0 && (
+              <p className={css.errorMessageTitle}>
+                <FormattedMessage id="ShippingMethodForm.addressToError" />
+              </p>
+            )}
+            {toMessages?.map((message, index) => (
+              <div className={css.errorMessage} key={message}>
+                {toMessages.length > 1 ? `${index + 1}.` : ''} {message}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={css.noRates}>
+            <FormattedMessage id="ShippingMethodForm.noRates" />
+          </div>
+        )
       ) : (
         shippingRates.map(rate => (
           <div
@@ -68,20 +170,18 @@ const ShippingMethodForm = ({
                 <div className={css.rateDuration}>{rate.durationTerms}</div>
               </div>
             </div>
-            <div className={css.ratePrice}>
-              {formatMoneyWithCurrency(rate.amount, rate.currency)}
-            </div>
+            <div className={css.ratePrice}>{formatMoneyFromNumber(intl, rate)}</div>
           </div>
         ))
       )}
-      <Button
+      <PrimaryButton
         type="submit"
-        disabled={disabledNextStep}
+        disabled={disabledNextStep || fromMessages?.length > 0 || toMessages?.length > 0}
         className={css.submitButton}
         onClick={onNextStep}
       >
         <FormattedMessage id="ShippingMethodForm.submit" />
-      </Button>
+      </PrimaryButton>
     </div>
   );
 };

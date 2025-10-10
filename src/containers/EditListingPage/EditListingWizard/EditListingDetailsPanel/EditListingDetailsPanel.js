@@ -265,6 +265,7 @@ const getInitialValues = (
  * @param {boolean} props.updateInProgress - Whether the update is in progress
  * @param {Object} props.errors - The errors object
  * @param {Object} props.config - The config object
+ * @param {Object} props.currentUser - The current user object
  * @returns {JSX.Element}
  */
 const EditListingDetailsPanel = props => {
@@ -281,10 +282,12 @@ const EditListingDetailsPanel = props => {
     updateInProgress,
     errors,
     config,
+    currentUser,
   } = props;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+  const [showShippingAddressFormError, setShowShippingAddressFormError] = useState(false);
+  const hasShippingAddress = !!currentUser?.attributes?.profile?.protectedData?.shippingAddress;
   const classes = classNames(rootClassName || css.root, className);
   const { publicData, state } = listing?.attributes || {};
   const listingTypes = config.listing.listingTypes;
@@ -321,7 +324,7 @@ const EditListingDetailsPanel = props => {
   };
 
   return (
-    <main className={classes}>
+    <div className={classes}>
       <H3 as="h1">
         {isPublished ? (
           <FormattedMessage
@@ -381,12 +384,18 @@ const EditListingDetailsPanel = props => {
                 unitType,
                 ...cleanedNestedCategories,
                 ...publicListingFields,
+                shippingEnabled: true,
               },
               privateData: privateListingFields,
               ...setNoAvailabilityForUnbookableListings(transactionProcessAlias),
             };
 
-            onSubmit(updateValues);
+            if (!hasShippingAddress) {
+              setShowShippingAddressFormError(true);
+              setIsModalOpen(true);
+            } else {
+              onSubmit(updateValues);
+            }
           }}
           selectableListingTypes={listingTypes.map(conf => getTransactionInfo([conf], {}, true))}
           hasExistingListingType={hasExistingListingType}
@@ -424,9 +433,15 @@ const EditListingDetailsPanel = props => {
         onManageDisableScrolling={props.onManageDisableScrolling}
         usePortal
       >
-        <ShippingAddressForm />
+        <ShippingAddressForm
+          showShippingAddressFormError={showShippingAddressFormError}
+          successCallback={() => {
+            setShowShippingAddressFormError(false);
+            setIsModalOpen(false);
+          }}
+        />
       </Modal>
-    </main>
+    </div>
   );
 };
 

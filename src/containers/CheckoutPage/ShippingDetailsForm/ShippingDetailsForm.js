@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ShippingAddressFormComponent } from '../../../components/ShippingAddressForm/ShippingAddressForm';
 import SavedShippingAddress from './SavedShippingAddress';
 import { FormattedMessage } from 'react-intl';
-import { Button } from '../../../components';
+import { PrimaryButton } from '../../../components';
 import classNames from 'classnames';
 import css from './ShippingDetailsForm.module.css';
 
@@ -46,19 +46,20 @@ const ShippingDetailsForm = props => {
   return (
     <div className={classNames(css.root, className)}>
       {address && (
-        <Button
+        <PrimaryButton
           className={css.useSavedAddressButton}
           type="button"
           onClick={() => setShowForm(false)}
         >
           <FormattedMessage id="ShippingDetailsForm.useSavedAddress" />
-        </Button>
+        </PrimaryButton>
       )}
       <ShippingAddressFormComponent
         initialValues={initialValues}
         showHeading={false}
         onSubmit={onSubmit}
         submitTitle={<FormattedMessage id="ShippingDetailsForm.submitTitle" />}
+        successCallback={onNextStep}
         {...rest}
       />
     </div>

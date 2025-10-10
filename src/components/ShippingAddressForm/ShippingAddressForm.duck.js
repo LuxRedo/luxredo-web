@@ -1,17 +1,18 @@
-import get from 'lodash/get';
-import { AddressApis } from '../../util/api';
 import * as log from '../../util/log';
 import { fetchCurrentUser } from '../../ducks/user.duck';
 
 export const LOAD_DATA_SUCCESS = 'app/ShippingAddressForm/LOAD_DATA_SUCCESS';
-export const VALIDATE_ADDRESS_REQUEST = 'app/ShippingAddressForm/VALIDATE_ADDRESS_REQUEST';
-export const VALIDATE_ADDRESS_SUCCESS = 'app/ShippingAddressForm/VALIDATE_ADDRESS_SUCCESSv';
-export const VALIDATE_ADDRESS_ERROR = 'app/ShippingAddressForm/VALIDATE_ADDRESS_ERROR';
+export const UPDATE_SHIPPING_ADDRESS_REQUEST =
+  'app/ShippingAddressForm/UPDATE_SHIPPING_ADDRESS_REQUEST';
+export const UPDATE_SHIPPING_ADDRESS_SUCCESS =
+  'app/ShippingAddressForm/UPDATE_SHIPPING_ADDRESS_SUCCESS';
+export const UPDATE_SHIPPING_ADDRESS_ERROR =
+  'app/ShippingAddressForm/UPDATE_SHIPPING_ADDRESS_ERROR';
 
 const initialState = {
-  validateAddressInProgress: false,
-  validateAddressSuccess: null,
-  validateAddressError: null,
+  updateShippingAddressInProgress: false,
+  updateShippingAddressSuccess: null,
+  updateShippingAddressError: null,
 };
 
 export default function reducer(state = initialState, action = {}) {
@@ -20,17 +21,25 @@ export default function reducer(state = initialState, action = {}) {
     case LOAD_DATA_SUCCESS:
       return { ...state, initialValues: payload };
 
-    case VALIDATE_ADDRESS_REQUEST:
+    case UPDATE_SHIPPING_ADDRESS_REQUEST:
       return {
         ...state,
-        validateAddressInProgress: true,
-        validateAddressSuccess: null,
-        validateAddressError: null,
+        updateShippingAddressInProgress: true,
+        updateShippingAddressSuccess: null,
+        updateShippingAddressError: null,
       };
-    case VALIDATE_ADDRESS_SUCCESS:
-      return { ...state, validateAddressInProgress: false, validateAddressSuccess: true };
-    case VALIDATE_ADDRESS_ERROR:
-      return { ...state, validateAddressInProgress: false, validateAddressError: payload };
+    case UPDATE_SHIPPING_ADDRESS_SUCCESS:
+      return {
+        ...state,
+        updateShippingAddressInProgress: false,
+        updateShippingAddressSuccess: true,
+      };
+    case UPDATE_SHIPPING_ADDRESS_ERROR:
+      return {
+        ...state,
+        updateShippingAddressInProgress: false,
+        updateShippingAddressError: payload,
+      };
 
     default:
       return state;
@@ -39,65 +48,46 @@ export default function reducer(state = initialState, action = {}) {
 
 // ---
 
-export const loadDataSuccess = shippingAdress => ({
+export const loadDataSuccess = shippingAddress => ({
   type: LOAD_DATA_SUCCESS,
-  payload: shippingAdress,
+  payload: shippingAddress,
 });
 
-export const validateAddressRequest = () => ({
-  type: VALIDATE_ADDRESS_REQUEST,
+export const updateShippingAddressRequest = () => ({
+  type: UPDATE_SHIPPING_ADDRESS_REQUEST,
 });
-export const validateAddressSuccess = () => ({
-  type: VALIDATE_ADDRESS_SUCCESS,
+export const updateShippingAddressSuccess = () => ({
+  type: UPDATE_SHIPPING_ADDRESS_SUCCESS,
 });
-export const validateAddressError = error => ({
-  type: VALIDATE_ADDRESS_ERROR,
+export const updateShippingAddressError = error => ({
+  type: UPDATE_SHIPPING_ADDRESS_ERROR,
   payload: { error },
 });
 
 // ---
 
-export const validateAddress = address => async (dispatch, getState, sdk) => {
+export const updateShippingAddress = address => async (dispatch, getState, sdk) => {
   if (!address) {
     return;
   }
 
   try {
-    dispatch(validateAddressRequest());
+    dispatch(updateShippingAddressRequest());
 
-    const response = await AddressApis.validateAddress({ address });
-    const validationResults = get(response, 'validationResults', null);
-
-    if (!validationResults?.isValid) {
-      const errorMsg = get(validationResults, 'messages[0].text');
-      throw new Error(errorMsg);
-    }
-
-    const { street1, street_no, city, state, zip, country, name, objectId } = response;
-    await sdk.currentUser.updateProfile({
+    const response = await sdk.currentUser.updateProfile({
       protectedData: {
-        shippingAddress: {
-          street1,
-          streetNo: street_no,
-          city,
-          state,
-          zip,
-          country,
-          name,
-          phone: address.phone,
-          id: objectId,
-        },
+        shippingAddress: address,
       },
     });
 
     await dispatch(fetchCurrentUser());
 
-    dispatch(validateAddressSuccess());
+    dispatch(updateShippingAddressSuccess());
 
     return response;
   } catch (e) {
-    log.error(e, 'validate-address-failed', { address: address });
-    dispatch(validateAddressError(e));
+    log.error(e, 'update-shipping-address-failed', { address: address });
+    dispatch(updateShippingAddressError(e));
     throw e;
   }
 };

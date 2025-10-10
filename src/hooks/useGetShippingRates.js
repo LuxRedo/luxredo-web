@@ -7,7 +7,7 @@ const useGetShippingRates = ({ tx, currentUser, listing }) => {
   const customerId = customer?.id?.uuid;
   const providerId = provider?.id?.uuid;
   const dispatch = useDispatch();
-  const shippingRates = useSelector(state => state.CheckoutPage.shippingRates);
+  const shipment = useSelector(state => state.CheckoutPage.shipment);
   const getShippingRatesInProgress = useSelector(
     state => state.CheckoutPage.getShippingRatesInProgress
   );
@@ -33,7 +33,7 @@ const useGetShippingRates = ({ tx, currentUser, listing }) => {
     listingId,
   ]);
   return {
-    shippingRates,
+    shipment,
     getShippingRatesInProgress,
     getShippingRatesError,
     hasEnoughShippingAddressFields,

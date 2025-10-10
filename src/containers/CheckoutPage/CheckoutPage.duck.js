@@ -50,8 +50,8 @@ const initialState = {
   initiateInquiryError: null,
   getShippingRatesInProgress: false,
   getShippingRatesError: null,
-  shippingRates: [],
   reSpeculateInProgress: false,
+  shipment: null,
 };
 
 export default function checkoutPageReducer(state = initialState, action = {}) {
@@ -130,7 +130,7 @@ export default function checkoutPageReducer(state = initialState, action = {}) {
     case GET_SHIPPING_RATES_REQUEST:
       return { ...state, getShippingRatesInProgress: true };
     case GET_SHIPPING_RATES_SUCCESS:
-      return { ...state, getShippingRatesInProgress: false, shippingRates: payload };
+      return { ...state, getShippingRatesInProgress: false, shipment: payload };
     case GET_SHIPPING_RATES_ERROR:
       console.error(payload); // eslint-disable-line no-console
       return { ...state, getShippingRatesInProgress: false, getShippingRatesError: payload };
@@ -208,9 +208,9 @@ export const initiateInquiryError = e => ({
 });
 
 export const getShippingRatesRequest = () => ({ type: GET_SHIPPING_RATES_REQUEST });
-export const getShippingRatesSuccess = rates => ({
+export const getShippingRatesSuccess = shipment => ({
   type: GET_SHIPPING_RATES_SUCCESS,
-  payload: rates,
+  payload: shipment,
 });
 export const getShippingRatesError = error => ({ type: GET_SHIPPING_RATES_ERROR, payload: error });
 

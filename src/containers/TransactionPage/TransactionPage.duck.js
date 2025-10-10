@@ -653,14 +653,12 @@ export const fetchTransaction = (id, txRole, config) => (dispatch, getState, sdk
       const listing = denormalised[0];
       const transaction = denormalised[1];
       const processName = resolveLatestProcessName(transaction.attributes.processName);
-      console.log({ transaction });
       const shippingDetails = transaction.attributes.metadata?.shippingDetails;
       const hasEnoughTrackingValue =
         !!shippingDetails?.trackingNumber &&
         !!shippingDetails?.trackingUrl &&
         !!shippingDetails?.labelUrl;
 
-      console.log({ shippingDetails });
       if (!hasEnoughTrackingValue && shippingDetails?.transactionId) {
         dispatch(fetchShippingLabelDetails(shippingDetails.transactionId));
       } else {
