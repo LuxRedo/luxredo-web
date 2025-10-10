@@ -92,7 +92,7 @@ const ShippingMethodForm = ({
   if (getShippingRatesInProgress) {
     return <Spinner />;
   }
-  const shippingRates = shipment.rates
+  const shippingRates = shipment?.rates
     ? shipment.rates.sort((a, b) => Number(a.amount) - Number(b.amount))
     : [];
   const { addressFromMessages, addressToMessages } = getShippingRateErrorMessages(shipment);
