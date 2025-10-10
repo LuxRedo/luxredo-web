@@ -1,3 +1,4 @@
+const { denormalisedResponseEntities } = require('../api-util/format');
 const { transactionLineItems } = require('../api-util/lineItems');
 const {
   getSdk,
@@ -6,65 +7,105 @@ const {
   serialize,
   fetchCommission,
 } = require('../api-util/sdk');
+const { ShippingServices, TransactionServices } = require('../services');
 
-module.exports = (req, res) => {
-  const { isSpeculative, orderData, bodyParams, queryParams } = req.body;
+/**
+ * Transition a privileged transaction with optional shipping
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const transitionPrivilegedTransaction = async (req, res) => {
+  try {
+    const { isSpeculative, orderData, bodyParams, queryParams } = req.body;
+    const sdk = getSdk(req, res);
 
-  const sdk = getSdk(req, res);
-  let lineItems = null;
+    // Fetch required data
+    const [listingResponse, commissionResponse, shippingRate] = await Promise.all([
+      sdk.listings.show({ id: bodyParams?.params?.listingId }),
+      fetchCommission(sdk),
+      orderData?.shippingRateId
+        ? ShippingServices.rates.get(orderData?.shippingRateId)
+        : Promise.resolve(null),
+    ]);
 
-  const listingPromise = () => sdk.listings.show({ id: bodyParams?.params?.listingId });
+    const listing = listingResponse.data.data;
+    const commissionAsset = commissionResponse.data.data[0];
 
-  Promise.all([listingPromise(), fetchCommission(sdk)])
-    .then(([showListingResponse, fetchAssetsResponse]) => {
-      const listing = showListingResponse.data.data;
-      const commissionAsset = fetchAssetsResponse.data.data[0];
+    // Validate shipping rate if provided
+    if (orderData?.shippingRateId && !shippingRate) {
+      const message = `Shipping rate ${orderData?.shippingRateId} not found`;
+      const error = new Error(message);
+      error.status = 404;
+      error.statusText = message;
+      throw error;
+    }
 
-      const { providerCommission, customerCommission } =
-        commissionAsset?.type === 'jsonAsset' ? commissionAsset.attributes.data : {};
+    const { providerCommission, customerCommission } =
+      commissionAsset?.type === 'jsonAsset' ? commissionAsset.attributes.data : {};
 
-      lineItems = transactionLineItems(
-        listing,
-        { ...orderData, ...bodyParams.params },
-        providerCommission,
-        customerCommission
-      );
+    // Generate line items
+    const lineItems = transactionLineItems(
+      listing,
+      { ...orderData, ...bodyParams.params },
+      providerCommission,
+      customerCommission,
+      shippingRate
+    );
 
-      return getTrustedSdk(req);
-    })
-    .then(trustedSdk => {
-      // Omit listingId from params (transition/request-payment-after-inquiry does not need it)
-      const { listingId, ...restParams } = bodyParams?.params || {};
+    // Get trusted SDK for transaction transition
+    const trustedSdk = await getTrustedSdk(req);
 
-      // Add lineItems to the body params
-      const body = {
-        ...bodyParams,
-        params: {
-          ...restParams,
-          lineItems,
+    // Omit listingId from params (transition/request-payment-after-inquiry does not need it)
+    const { listingId, ...restParams } = bodyParams?.params || {};
+
+    // Add lineItems to the body params
+    const body = {
+      ...bodyParams,
+      params: {
+        ...restParams,
+        protectedData: {
+          ...restParams.protectedData,
+          ...(orderData?.shippingRateId ? { shippingRateId: orderData.shippingRateId } : {}),
         },
-      };
+        lineItems,
+      },
+    };
 
-      if (isSpeculative) {
-        return trustedSdk.transactions.transitionSpeculative(body, queryParams);
-      }
-      return trustedSdk.transactions.transition(body, queryParams);
-    })
-    .then(apiResponse => {
-      const { status, statusText, data } = apiResponse;
-      res
-        .status(status)
-        .set('Content-Type', 'application/transit+json')
-        .send(
-          serialize({
-            status,
-            statusText,
-            data,
-          })
-        )
-        .end();
-    })
-    .catch(e => {
-      handleError(res, e);
-    });
+    // Transition transaction (speculative or regular)
+    const apiResponse = isSpeculative
+      ? await trustedSdk.transactions.transitionSpeculative(body, queryParams)
+      : await trustedSdk.transactions.transition(body, queryParams);
+
+    const { status, statusText, data } = apiResponse;
+
+    // Create shipping transaction record if shipping rate was used
+    if (orderData?.shippingRateId) {
+      const [transaction] = denormalisedResponseEntities(apiResponse);
+      await ShippingServices.transactions.create({
+        rate: orderData?.shippingRateId,
+        metadata: `Sharetribe Transaction ID #${transaction.id.uuid}`,
+      });
+    }
+
+    if (!isSpeculative) {
+      const [transaction] = denormalisedResponseEntities(apiResponse);
+      await TransactionServices.handleAfterInitiateTransaction(orderData, bodyParams, transaction);
+    }
+    // Send response
+    res
+      .status(status)
+      .set('Content-Type', 'application/transit+json')
+      .send(
+        serialize({
+          status,
+          statusText,
+          data,
+        })
+      )
+      .end();
+  } catch (error) {
+    handleError(res, error);
+  }
 };
+
+module.exports = transitionPrivilegedTransaction;

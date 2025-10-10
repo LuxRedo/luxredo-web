@@ -156,6 +156,7 @@ export class TransactionPanelComponent extends Component {
       provider,
       hasTransitions = false,
       protectedData,
+      shippingLabelDetails,
       messages,
       initialMessageFailed = false,
       savePaymentMethodFailed = false,
@@ -301,8 +302,10 @@ export class TransactionPanelComponent extends Component {
                 <DeliveryInfoMaybe
                   className={css.deliveryInfoSection}
                   protectedData={protectedData}
+                  shippingLabelDetails={shippingLabelDetails}
                   listing={listing}
                   locale={config.localization.locale}
+                  isProvider={isProvider}
                 />
                 <BookingLocationMaybe
                   className={css.deliveryInfoSection}

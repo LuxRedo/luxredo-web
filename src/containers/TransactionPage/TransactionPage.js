@@ -161,6 +161,7 @@ export const TransactionPageComponent = props => {
     nextTransitions,
     callSetInitialValues,
     onInitializeCardPaymentData,
+    shippingLabelDetails,
     ...restOfProps
   } = props;
 
@@ -500,6 +501,7 @@ export const TransactionPageComponent = props => {
       showBookingLocation={showBookingLocation}
       hasViewingRights={hasViewingRights}
       showListingImage={showListingImage}
+      shippingLabelDetails={shippingLabelDetails}
       activityFeed={
         <ActivityFeed
           messages={messages}
@@ -619,6 +621,7 @@ const mapStateToProps = state => {
     lineItems,
     fetchLineItemsInProgress,
     fetchLineItemsError,
+    shippingLabelDetails,
   } = state.TransactionPage;
   const { currentUser } = state.user;
 
@@ -649,6 +652,7 @@ const mapStateToProps = state => {
     lineItems, // for OrderPanel
     fetchLineItemsInProgress, // for OrderPanel
     fetchLineItemsError, // for OrderPanel
+    shippingLabelDetails,
   };
 };
 

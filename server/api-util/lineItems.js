@@ -15,24 +15,18 @@ const { Money } = types;
  * @param {*} publicData should contain shipping prices
  * @param {*} currency should point to the currency of listing's price.
  */
-const getItemQuantityAndLineItems = (orderData, publicData, currency) => {
+const getItemQuantityAndLineItems = (orderData, publicData, currency, shippingRate) => {
   // Check delivery method and shipping prices
   const quantity = orderData ? orderData.stockReservationQuantity : null;
   const deliveryMethod = orderData && orderData.deliveryMethod;
   const isShipping = deliveryMethod === 'shipping';
   const isPickup = deliveryMethod === 'pickup';
-  const { shippingPriceInSubunitsOneItem, shippingPriceInSubunitsAdditionalItems } =
-    publicData || {};
 
   // Calculate shipping fee if applicable
-  const shippingFee = isShipping
-    ? calculateShippingFee(
-        shippingPriceInSubunitsOneItem,
-        shippingPriceInSubunitsAdditionalItems,
-        currency,
-        quantity
-      )
-    : null;
+  const shippingFee =
+    shippingRate && isShipping
+      ? new Money(Number(shippingRate.amount) * 100, shippingRate.currency)
+      : null;
 
   // Add line-item for given delivery method.
   // Note: by default, pickup considered as free and, therefore, we don't add pickup fee line-item
@@ -42,7 +36,7 @@ const getItemQuantityAndLineItems = (orderData, publicData, currency) => {
           code: 'line-item/shipping-fee',
           unitPrice: shippingFee,
           quantity: 1,
-          includeFor: ['customer', 'provider'],
+          includeFor: ['customer'],
         },
       ]
     : [];
@@ -129,7 +123,13 @@ const getDateRangeQuantityAndLineItems = (orderData, code) => {
  * @param {Object} customerCommission
  * @returns {Array} lineItems
  */
-exports.transactionLineItems = (listing, orderData, providerCommission, customerCommission) => {
+exports.transactionLineItems = (
+  listing,
+  orderData,
+  providerCommission,
+  customerCommission,
+  shippingRate
+) => {
   const publicData = listing.attributes.publicData;
   // Note: the unitType needs to be one of the following:
   // day, night, hour, fixed, or item (these are related to payment processes)
@@ -168,7 +168,7 @@ exports.transactionLineItems = (listing, orderData, providerCommission, customer
   // E.g. by default, "shipping-fee" is tied to 'item' aka buying products.
   const quantityAndExtraLineItems =
     unitType === 'item'
-      ? getItemQuantityAndLineItems(orderData, publicData, currency)
+      ? getItemQuantityAndLineItems(orderData, publicData, currency, shippingRate)
       : unitType === 'fixed'
       ? getFixedQuantityAndLineItems(orderData)
       : unitType === 'hour'

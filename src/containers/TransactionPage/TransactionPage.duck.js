@@ -11,7 +11,7 @@ import {
   stringifyDateToISO8601,
 } from '../../util/dates';
 import { isTransactionsTransitionInvalidTransition, storableError } from '../../util/errors';
-import { transactionLineItems } from '../../util/api';
+import { AddressApis, transactionLineItems } from '../../util/api';
 import * as log from '../../util/log';
 import {
   updatedEntities,
@@ -89,6 +89,13 @@ export const FETCH_LINE_ITEMS_REQUEST = 'app/TransactionPage/FETCH_LINE_ITEMS_RE
 export const FETCH_LINE_ITEMS_SUCCESS = 'app/TransactionPage/FETCH_LINE_ITEMS_SUCCESS';
 export const FETCH_LINE_ITEMS_ERROR = 'app/TransactionPage/FETCH_LINE_ITEMS_ERROR';
 
+export const FETCH_SHIPPING_LABEL_DETAILS_REQUEST =
+  'app/TransactionPage/FETCH_SHIPPING_LABEL_DETAILS_REQUEST';
+export const FETCH_SHIPPING_LABEL_DETAILS_SUCCESS =
+  'app/TransactionPage/FETCH_SHIPPING_LABEL_DETAILS_SUCCESS';
+export const FETCH_SHIPPING_LABEL_DETAILS_ERROR =
+  'app/TransactionPage/FETCH_SHIPPING_LABEL_DETAILS_ERROR';
+
 // ================ Reducer ================ //
 
 const initialState = {
@@ -131,7 +138,9 @@ const initialState = {
   processTransitions: null,
   lineItems: null,
   fetchLineItemsInProgress: false,
-  fetchLineItemsError: null,
+  shippingLabelDetails: null,
+  fetchShippingLabelDetailsInProgress: false,
+  fetchShippingLabelDetailsError: null,
 };
 
 // Merge entity arrays using ids, so that conflicting items in newer array (b) overwrite old values (a).
@@ -301,6 +310,24 @@ export default function transactionPageReducer(state = initialState, action = {}
     case FETCH_LINE_ITEMS_ERROR:
       return { ...state, fetchLineItemsInProgress: false, fetchLineItemsError: payload };
 
+    case FETCH_SHIPPING_LABEL_DETAILS_REQUEST:
+      return {
+        ...state,
+        fetchShippingLabelDetailsInProgress: true,
+        fetchShippingLabelDetailsError: null,
+      };
+    case FETCH_SHIPPING_LABEL_DETAILS_SUCCESS:
+      return {
+        ...state,
+        fetchShippingLabelDetailsInProgress: false,
+        shippingLabelDetails: payload,
+      };
+    case FETCH_SHIPPING_LABEL_DETAILS_ERROR:
+      return {
+        ...state,
+        fetchShippingLabelDetailsInProgress: false,
+        fetchShippingLabelDetailsError: payload,
+      };
     default:
       return state;
   }
@@ -386,6 +413,19 @@ export const fetchLineItemsSuccess = lineItems => ({
 });
 export const fetchLineItemsError = error => ({
   type: FETCH_LINE_ITEMS_ERROR,
+  error: true,
+  payload: error,
+});
+
+export const fetchShippingLabelDetailsRequest = () => ({
+  type: FETCH_SHIPPING_LABEL_DETAILS_REQUEST,
+});
+export const fetchShippingLabelDetailsSuccess = shippingLabelDetails => ({
+  type: FETCH_SHIPPING_LABEL_DETAILS_SUCCESS,
+  payload: shippingLabelDetails,
+});
+export const fetchShippingLabelDetailsError = error => ({
+  type: FETCH_SHIPPING_LABEL_DETAILS_ERROR,
   error: true,
   payload: error,
 });
@@ -613,6 +653,17 @@ export const fetchTransaction = (id, txRole, config) => (dispatch, getState, sdk
       const listing = denormalised[0];
       const transaction = denormalised[1];
       const processName = resolveLatestProcessName(transaction.attributes.processName);
+      const shippingDetails = transaction.attributes.metadata?.shippingDetails;
+      const hasEnoughTrackingValue =
+        !!shippingDetails?.trackingNumber &&
+        !!shippingDetails?.trackingUrl &&
+        !!shippingDetails?.labelUrl;
+
+      if (!hasEnoughTrackingValue && shippingDetails?.transactionId) {
+        dispatch(fetchShippingLabelDetails(shippingDetails.transactionId));
+      } else {
+        dispatch(fetchShippingLabelDetailsSuccess(shippingDetails));
+      }
 
       try {
         const process = getProcess(processName);
@@ -881,6 +932,17 @@ export const fetchTransactionLineItems = ({ orderData, listingId, isOwnListing }
         statusText: e.statusText,
       });
     });
+};
+
+export const fetchShippingLabelDetails = txId => async dispatch => {
+  try {
+    dispatch(fetchShippingLabelDetailsRequest());
+    const shippingLabelDetails = await AddressApis.getShippingLabel({ transactionId: txId });
+    dispatch(fetchShippingLabelDetailsSuccess(shippingLabelDetails));
+    return shippingLabelDetails;
+  } catch (error) {
+    dispatch(fetchShippingLabelDetailsError(storableError(error)));
+  }
 };
 
 // loadData is a collection of async calls that need to be made

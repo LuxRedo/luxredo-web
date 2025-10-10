@@ -299,6 +299,7 @@ const AddListingFields = props => {
  * @param {boolean} [props.autoFocus] - Whether the form should autofocus
  * @param {Function} props.onListingTypeChange - The listing type change function
  * @param {Function} props.onSubmit - The submit function
+ * @param {Function} props.onViewShippingAddress - The view shipping address function
  * @returns {JSX.Element}
  */
 const EditListingDetailsForm = props => (
@@ -331,6 +332,7 @@ const EditListingDetailsForm = props => (
         listingFieldsConfig = [],
         listingCurrency,
         values,
+        onViewShippingAddress,
       } = formRenderProps;
 
       const intl = useIntl();
@@ -457,6 +459,16 @@ const EditListingDetailsForm = props => (
                 values={{ marketplaceName, marketplaceCurrency }}
               />
             </p>
+          )}
+
+          {showListingFields && (
+            <Button
+              className={css.viewShippingAddressButton}
+              type="button"
+              onClick={onViewShippingAddress}
+            >
+              <FormattedMessage id="EditListingDetailsForm.viewShippingAddress" />
+            </Button>
           )}
 
           <Button

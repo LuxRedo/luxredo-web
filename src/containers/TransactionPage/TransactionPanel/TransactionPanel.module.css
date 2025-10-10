@@ -372,6 +372,25 @@
   margin-bottom: 16px;
 }
 
+.shippingDetailsContainer {
+  margin-top: 24px;
+}
+
+.shippingDetailsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0px 0 0px 13px;
+
+  @media (--viewportMedium) {
+    padding: 4px 0 4px 13px;
+  }
+}
+
+.shippingDetailsContent p {
+  margin: 0;
+}
+
 .shippingInfoContent {
   padding: 0px 0 0px 13px;
   margin-top: 12px;

@@ -1,5 +1,5 @@
 import pick from 'lodash/pick';
-import { initiatePrivileged, transitionPrivileged } from '../../util/api';
+import { AddressApis, initiatePrivileged, transitionPrivileged } from '../../util/api';
 import { denormalisedResponseEntities } from '../../util/data';
 import { storableError } from '../../util/errors';
 import * as log from '../../util/log';
@@ -29,6 +29,10 @@ export const INITIATE_INQUIRY_REQUEST = 'app/CheckoutPage/INITIATE_INQUIRY_REQUE
 export const INITIATE_INQUIRY_SUCCESS = 'app/CheckoutPage/INITIATE_INQUIRY_SUCCESS';
 export const INITIATE_INQUIRY_ERROR = 'app/CheckoutPage/INITIATE_INQUIRY_ERROR';
 
+export const GET_SHIPPING_RATES_REQUEST = 'app/CheckoutPage/GET_SHIPPING_RATES_REQUEST';
+export const GET_SHIPPING_RATES_SUCCESS = 'app/CheckoutPage/GET_SHIPPING_RATES_SUCCESS';
+export const GET_SHIPPING_RATES_ERROR = 'app/CheckoutPage/GET_SHIPPING_RATES_ERROR';
+
 // ================ Reducer ================ //
 
 const initialState = {
@@ -44,6 +48,10 @@ const initialState = {
   stripeCustomerFetched: false,
   initiateInquiryInProgress: false,
   initiateInquiryError: null,
+  getShippingRatesInProgress: false,
+  getShippingRatesError: null,
+  reSpeculateInProgress: false,
+  shipment: null,
 };
 
 export default function checkoutPageReducer(state = initialState, action = {}) {
@@ -52,13 +60,20 @@ export default function checkoutPageReducer(state = initialState, action = {}) {
     case SET_INITIAL_VALUES:
       return { ...initialState, ...payload };
 
-    case SPECULATE_TRANSACTION_REQUEST:
+    case SPECULATE_TRANSACTION_REQUEST: {
+      if (payload) {
+        return {
+          ...state,
+          reSpeculateInProgress: true,
+        };
+      }
       return {
         ...state,
         speculateTransactionInProgress: true,
         speculateTransactionError: null,
         speculatedTransaction: null,
       };
+    }
     case SPECULATE_TRANSACTION_SUCCESS: {
       // Check that the local devices clock is within a minute from the server
       const lastTransitionedAt = payload.transaction?.attributes?.lastTransitionedAt;
@@ -69,6 +84,7 @@ export default function checkoutPageReducer(state = initialState, action = {}) {
         speculateTransactionInProgress: false,
         speculatedTransaction: payload.transaction,
         isClockInSync: Math.abs(lastTransitionedAt?.getTime() - localTime.getTime()) < minute,
+        reSpeculateInProgress: false,
       };
     }
     case SPECULATE_TRANSACTION_ERROR:
@@ -77,6 +93,7 @@ export default function checkoutPageReducer(state = initialState, action = {}) {
         ...state,
         speculateTransactionInProgress: false,
         speculateTransactionError: payload,
+        reSpeculateInProgress: false,
       };
 
     case INITIATE_ORDER_REQUEST:
@@ -109,6 +126,14 @@ export default function checkoutPageReducer(state = initialState, action = {}) {
       return { ...state, initiateInquiryInProgress: false };
     case INITIATE_INQUIRY_ERROR:
       return { ...state, initiateInquiryInProgress: false, initiateInquiryError: payload };
+
+    case GET_SHIPPING_RATES_REQUEST:
+      return { ...state, getShippingRatesInProgress: true };
+    case GET_SHIPPING_RATES_SUCCESS:
+      return { ...state, getShippingRatesInProgress: false, shipment: payload };
+    case GET_SHIPPING_RATES_ERROR:
+      console.error(payload); // eslint-disable-line no-console
+      return { ...state, getShippingRatesInProgress: false, getShippingRatesError: payload };
 
     default:
       return state;
@@ -150,7 +175,10 @@ const confirmPaymentError = e => ({
   payload: e,
 });
 
-export const speculateTransactionRequest = () => ({ type: SPECULATE_TRANSACTION_REQUEST });
+export const speculateTransactionRequest = isReSpeculate => ({
+  type: SPECULATE_TRANSACTION_REQUEST,
+  payload: isReSpeculate,
+});
 
 export const speculateTransactionSuccess = transaction => ({
   type: SPECULATE_TRANSACTION_SUCCESS,
@@ -179,6 +207,13 @@ export const initiateInquiryError = e => ({
   payload: e,
 });
 
+export const getShippingRatesRequest = () => ({ type: GET_SHIPPING_RATES_REQUEST });
+export const getShippingRatesSuccess = shipment => ({
+  type: GET_SHIPPING_RATES_SUCCESS,
+  payload: shipment,
+});
+export const getShippingRatesError = error => ({ type: GET_SHIPPING_RATES_ERROR, payload: error });
+
 /* ================ Thunks ================ */
 
 export const initiateOrder = (
@@ -194,12 +229,23 @@ export const initiateOrder = (
   // initiate.
   const isTransition = !!transactionId;
 
-  const { deliveryMethod, quantity, bookingDates, ...otherOrderParams } = orderParams;
+  const {
+    deliveryMethod,
+    quantity,
+    bookingDates,
+    shippingRateId,
+    ...otherOrderParams
+  } = orderParams;
   const quantityMaybe = quantity ? { stockReservationQuantity: quantity } : {};
+  const shippingRateIdMaybe = shippingRateId ? { shippingRateId } : {};
   const bookingParamsMaybe = bookingDates || {};
 
   // Parameters only for client app's server
-  const orderData = deliveryMethod ? { deliveryMethod } : {};
+  const deliveryMethodMaybe = deliveryMethod ? { deliveryMethod } : {};
+  const orderData = {
+    ...deliveryMethodMaybe,
+    ...shippingRateIdMaybe,
+  };
 
   // Parameters for Marketplace API
   const transitionParams = {
@@ -220,7 +266,7 @@ export const initiateOrder = (
         params: transitionParams,
       };
   const queryParams = {
-    include: ['booking', 'provider'],
+    include: ['booking', 'provider', 'customer'],
     expand: true,
   };
 
@@ -393,8 +439,6 @@ export const speculateTransaction = (
   transitionName,
   isPrivilegedTransition
 ) => (dispatch, getState, sdk) => {
-  dispatch(speculateTransactionRequest());
-
   // If we already have a transaction ID, we should transition, not
   // initiate.
   const isTransition = !!transactionId;
@@ -404,8 +448,12 @@ export const speculateTransaction = (
     priceVariantName,
     quantity,
     bookingDates,
+    shippingRateId,
     ...otherOrderParams
   } = orderParams;
+  const isReSpeculate = !!shippingRateId;
+  dispatch(speculateTransactionRequest(isReSpeculate));
+
   const quantityMaybe = quantity ? { stockReservationQuantity: quantity } : {};
   const bookingParamsMaybe = bookingDates || {};
 
@@ -413,6 +461,7 @@ export const speculateTransaction = (
   const orderData = {
     ...(deliveryMethod ? { deliveryMethod } : {}),
     ...(priceVariantName ? { priceVariantName } : {}),
+    ...(shippingRateId ? { shippingRateId } : {}),
   };
 
   // Parameters for Marketplace API
@@ -436,7 +485,7 @@ export const speculateTransaction = (
       };
 
   const queryParams = {
-    include: ['booking', 'provider'],
+    include: ['booking', 'provider', 'customer'],
     expand: true,
   };
 
@@ -502,5 +551,16 @@ export const stripeCustomer = () => (dispatch, getState, sdk) => {
     })
     .catch(e => {
       dispatch(stripeCustomerError(storableError(e)));
+    });
+};
+
+export const getShippingRates = body => dispatch => {
+  dispatch(getShippingRatesRequest());
+  return AddressApis.getShippingRates(body)
+    .then(response => {
+      dispatch(getShippingRatesSuccess(response.data));
+    })
+    .catch(e => {
+      dispatch(getShippingRatesError(storableError(e)));
     });
 };

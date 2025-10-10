@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import classNames from 'classnames';
 
 // Import util modules
@@ -17,7 +17,7 @@ import {
 import { isBookingProcessAlias } from '../../../../transactions/transaction';
 
 // Import shared components
-import { H3, ListingLink } from '../../../../components';
+import { H3, ListingLink, Modal, ShippingAddressForm } from '../../../../components';
 
 // Import modules from this directory
 import ErrorMessage from './ErrorMessage';
@@ -265,6 +265,7 @@ const getInitialValues = (
  * @param {boolean} props.updateInProgress - Whether the update is in progress
  * @param {Object} props.errors - The errors object
  * @param {Object} props.config - The config object
+ * @param {Object} props.currentUser - The current user object
  * @returns {JSX.Element}
  */
 const EditListingDetailsPanel = props => {
@@ -281,8 +282,12 @@ const EditListingDetailsPanel = props => {
     updateInProgress,
     errors,
     config,
+    currentUser,
   } = props;
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showShippingAddressFormError, setShowShippingAddressFormError] = useState(false);
+  const hasShippingAddress = !!currentUser?.attributes?.profile?.protectedData?.shippingAddress;
   const classes = classNames(rootClassName || css.root, className);
   const { publicData, state } = listing?.attributes || {};
   const listingTypes = config.listing.listingTypes;
@@ -314,8 +319,12 @@ const EditListingDetailsPanel = props => {
     hasListingTypesSet && (!hasExistingListingType || hasValidExistingListingType);
   const isPublished = listing?.id && state !== LISTING_STATE_DRAFT;
 
+  const onViewShippingAddress = () => {
+    setIsModalOpen(true);
+  };
+
   return (
-    <main className={classes}>
+    <div className={classes}>
       <H3 as="h1">
         {isPublished ? (
           <FormattedMessage
@@ -375,12 +384,18 @@ const EditListingDetailsPanel = props => {
                 unitType,
                 ...cleanedNestedCategories,
                 ...publicListingFields,
+                shippingEnabled: true,
               },
               privateData: privateListingFields,
               ...setNoAvailabilityForUnbookableListings(transactionProcessAlias),
             };
 
-            onSubmit(updateValues);
+            if (!hasShippingAddress) {
+              setShowShippingAddressFormError(true);
+              setIsModalOpen(true);
+            } else {
+              onSubmit(updateValues);
+            }
           }}
           selectableListingTypes={listingTypes.map(conf => getTransactionInfo([conf], {}, true))}
           hasExistingListingType={hasExistingListingType}
@@ -400,6 +415,7 @@ const EditListingDetailsPanel = props => {
           updateInProgress={updateInProgress}
           fetchErrors={errors}
           autoFocus
+          onViewShippingAddress={onViewShippingAddress}
         />
       ) : (
         <ErrorMessage
@@ -408,7 +424,24 @@ const EditListingDetailsPanel = props => {
           invalidExistingListingType={!hasValidExistingListingType}
         />
       )}
-    </main>
+      <Modal
+        id="ShippingAddress"
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+        }}
+        onManageDisableScrolling={props.onManageDisableScrolling}
+        usePortal
+      >
+        <ShippingAddressForm
+          showShippingAddressFormError={showShippingAddressFormError}
+          successCallback={() => {
+            setShowShippingAddressFormError(false);
+            setIsModalOpen(false);
+          }}
+        />
+      </Modal>
+    </div>
   );
 };
 

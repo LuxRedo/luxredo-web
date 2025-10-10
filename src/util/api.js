@@ -144,3 +144,33 @@ export const transitionPrivileged = body => {
 export const createUserWithIdp = body => {
   return post('/api/auth/create-user-with-idp', body);
 };
+
+// Validate an address.
+//
+// See `server/api/shipping/validate.js` to see what data should
+// be sent in the body.
+const validateAddress = body => {
+  return post(`/api/shipping/validate`, body);
+};
+
+// Get shipping rates for a checkout session.
+//
+// See `server/api/shipping/rates.js` to see what data should
+// be sent in the body.
+const getShippingRates = body => {
+  return post('/api/shipping/rates', body);
+};
+
+// Get shipping label for a transaction.
+//
+// See `server/api/shipping/label.js` to see what data should
+// be sent in the body.
+const getShippingLabel = body => {
+  return post('/api/shipping/label', body);
+};
+
+export const AddressApis = {
+  validateAddress,
+  getShippingRates,
+  getShippingLabel,
+};
