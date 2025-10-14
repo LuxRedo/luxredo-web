@@ -475,3 +475,7 @@
 .incompatibleCurrency {
   margin-top: 20px;
 }
+
+.spinner {
+  margin: auto auto;
+}
