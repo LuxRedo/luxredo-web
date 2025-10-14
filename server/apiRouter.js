@@ -22,6 +22,7 @@ const { authenticateFacebook, authenticateFacebookCallback } = require('./api/au
 const { authenticateGoogle, authenticateGoogleCallback } = require('./api/auth/google');
 
 const shippingRouter = require('./api/shipping');
+const stripeRouter = require('./api/stripe');
 
 const router = express.Router();
 
@@ -83,5 +84,7 @@ router.get('/auth/google', authenticateGoogle);
 router.get('/auth/google/callback', authenticateGoogleCallback);
 
 router.use('/shipping', shippingRouter);
+
+router.use('/stripe', stripeRouter);
 
 module.exports = router;
