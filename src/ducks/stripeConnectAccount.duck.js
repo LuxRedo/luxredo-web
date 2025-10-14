@@ -173,7 +173,7 @@ export const createStripeAccount = params => (dispatch, getState, sdk) => {
   // collected from the providers.
   // You can read more from here: https://stripe.com/docs/connect/capabilities-overview
   // Note: with default processes, both 'card_payments' and 'transfers' are required.
-  const requestedCapabilities = ['card_payments', 'transfers'];
+  const requestedCapabilities = ['card_payments', 'transfers', 'affirm_payments'];
 
   const accountInfo = {
     business_type: accountType,
@@ -225,7 +225,10 @@ export const createStripeAccount = params => (dispatch, getState, sdk) => {
 export const updateStripeAccount = params => (dispatch, getState, sdk) => {
   dispatch(stripeAccountUpdateRequest());
   return sdk.stripeAccount
-    .update({ requestedCapabilities: ['card_payments', 'transfers'] }, { expand: true })
+    .update(
+      { requestedCapabilities: ['card_payments', 'transfers', 'affirm_payments'] },
+      { expand: true }
+    )
     .then(response => {
       const stripeAccount = response.data.data;
       dispatch(stripeAccountUpdateSuccess(stripeAccount));
