@@ -7,6 +7,7 @@ const { getAmountAsDecimalJS, convertDecimalJSToNumber } = require('./currency')
 const { nightsBetween, daysBetween } = require('./dates');
 const LINE_ITEM_NIGHT = 'line-item/night';
 const LINE_ITEM_DAY = 'line-item/day';
+const AFFIRM_CHARGES_PERCENTAGE = 6.5;
 
 /** Helper functions for constructing line items*/
 
@@ -440,4 +441,15 @@ exports.getCustomerCommissionMaybe = (customerCommission, order, priceAttribute)
           includeFor: ['customer'],
         },
       ];
+};
+
+exports.getAffirmFeeLineItem = lineItems => {
+  return [
+    {
+      code: 'line-item/affirm-charges',
+      unitPrice: this.calculateTotalForCustomer(lineItems),
+      percentage: AFFIRM_CHARGES_PERCENTAGE,
+      includeFor: ['customer'],
+    },
+  ];
 };

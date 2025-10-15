@@ -156,3 +156,7 @@
 .missingStripeKey {
   color: var(--colorFail);
 }
+
+.cardContentHidden {
+  display: none;
+}

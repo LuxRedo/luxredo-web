@@ -1,4 +1,3 @@
-const { denormalisedResponseEntities } = require('../api-util/format');
 const { transactionLineItems } = require('../api-util/lineItems');
 const {
   getSdk,
@@ -7,7 +6,7 @@ const {
   serialize,
   fetchCommission,
 } = require('../api-util/sdk');
-const { ShippingServices, TransactionServices } = require('../services');
+const { ShippingServices } = require('../services');
 
 /**
  * Transition a privileged transaction with optional shipping
@@ -78,19 +77,6 @@ const transitionPrivilegedTransaction = async (req, res) => {
 
     const { status, statusText, data } = apiResponse;
 
-    // Create shipping transaction record if shipping rate was used
-    if (orderData?.shippingRateId) {
-      const [transaction] = denormalisedResponseEntities(apiResponse);
-      await ShippingServices.transactions.create({
-        rate: orderData?.shippingRateId,
-        metadata: `Sharetribe Transaction ID #${transaction.id.uuid}`,
-      });
-    }
-
-    if (!isSpeculative) {
-      const [transaction] = denormalisedResponseEntities(apiResponse);
-      await TransactionServices.handleAfterInitiateTransaction(orderData, bodyParams, transaction);
-    }
     // Send response
     res
       .status(status)

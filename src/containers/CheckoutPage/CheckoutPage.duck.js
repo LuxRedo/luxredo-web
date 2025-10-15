@@ -4,6 +4,7 @@ import { denormalisedResponseEntities } from '../../util/data';
 import { storableError } from '../../util/errors';
 import * as log from '../../util/log';
 import { fetchCurrentUserHasOrdersSuccess, fetchCurrentUser } from '../../ducks/user.duck';
+import { createShippingLabel } from '../TransactionPage/TransactionPage.duck';
 
 // ================ Action types ================ //
 
@@ -336,9 +337,10 @@ export const confirmPayment = (transactionId, transitionName, transitionParams =
 
   return sdk.transactions
     .transition(bodyParams, queryParams)
-    .then(response => {
+    .then(async response => {
       const order = response.data.data;
       dispatch(confirmPaymentSuccess(order.id));
+      await dispatch(createShippingLabel(order.id));
       return order;
     })
     .catch(e => {

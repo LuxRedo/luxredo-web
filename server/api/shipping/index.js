@@ -1,7 +1,7 @@
 const express = require('express');
 const validateAddress = require('./validate-address');
 const getShippingRates = require('./get-shipping-rates');
-const getShippingLabel = require('./get-shipping-label');
+const createShippingLabel = require('./create-shipping-label');
 
 const shippingRouter = express.Router();
 
@@ -11,7 +11,7 @@ shippingRouter.post('/validate', validateAddress);
 // Shipping rates calculation endpoint
 shippingRouter.post('/rates', getShippingRates);
 
-// Shipping label retrieval endpoint
-shippingRouter.post('/label', getShippingLabel);
+// Shipping label creation endpoint
+shippingRouter.post('/label', createShippingLabel);
 
 module.exports = shippingRouter;

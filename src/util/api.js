@@ -165,12 +165,12 @@ const getShippingRates = body => {
 //
 // See `server/api/shipping/label.js` to see what data should
 // be sent in the body.
-const getShippingLabel = body => {
+const createShippingLabel = body => {
   return post('/api/shipping/label', body);
 };
 
 export const AddressApis = {
   validateAddress,
   getShippingRates,
-  getShippingLabel,
+  createShippingLabel,
 };

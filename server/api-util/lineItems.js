@@ -1,12 +1,15 @@
 const {
   calculateQuantityFromDates,
   calculateQuantityFromHours,
-  calculateShippingFee,
   getProviderCommissionMaybe,
   getCustomerCommissionMaybe,
+  calculateTotalForCustomer,
+  getAffirmFeeLineItem,
 } = require('./lineItemHelpers');
 const { types } = require('sharetribe-flex-sdk');
 const { Money } = types;
+
+const AFFIRM_FEE_PERCENTAGE = 6.5;
 
 /**
  * Get quantity and add extra line-items that are related to delivery method
@@ -139,7 +142,7 @@ exports.transactionLineItems = (
   const priceAttribute = listing.attributes.price;
   const currency = priceAttribute.currency;
 
-  const { priceVariantName } = orderData || {};
+  const { priceVariantName, paymentMethodTypes } = orderData || {};
   const priceVariantConfig = priceVariants
     ? priceVariants.find(pv => pv.name === priceVariantName)
     : null;
@@ -225,5 +228,11 @@ exports.transactionLineItems = (
     ...getCustomerCommissionMaybe(customerCommission, order, priceAttribute),
   ];
 
-  return lineItems;
+  const affirmFeeLineItem = paymentMethodTypes?.includes('affirm')
+    ? getAffirmFeeLineItem(lineItems)
+    : [];
+
+  const finalLineItems = [...lineItems, ...affirmFeeLineItem];
+
+  return finalLineItems;
 };

@@ -167,6 +167,16 @@ const persistTransaction = (order, pageData, storeData, setPageData, sessionStor
     setPageData({ ...pageData, transaction: order });
   }
 };
+export const getInitiateTransition = (paymentMethodType, lastTransition, process) => {
+  if (paymentMethodType === 'affirm') {
+    return lastTransition === process.transitions.INQUIRE
+      ? process.transitions.REQUEST_PUSH_PAYMENT_AFTER_INQUIRY
+      : process.transitions.REQUEST_PUSH_PAYMENT;
+  }
+  return lastTransition === process.transitions.INQUIRE
+    ? process.transitions.REQUEST_PAYMENT_AFTER_INQUIRY
+    : process.transitions.REQUEST_PAYMENT;
+};
 
 /**
  * Create call sequence for checkout with Stripe PaymentIntents.
@@ -194,12 +204,14 @@ export const processCheckoutWithPayment = (orderParams, extraPaymentParams) => {
     stripeCustomer,
     stripePaymentMethodId,
   } = extraPaymentParams;
+  const { paymentMethodTypes } = orderParams;
   const storedTx = ensureTransaction(pageData.transaction);
 
   const ensuredStripeCustomer = ensureStripeCustomer(stripeCustomer);
   const processAlias = pageData?.listing?.attributes?.publicData?.transactionProcessAlias;
 
   let createdPaymentIntent = null;
+  const isAffirm = paymentMethodTypes?.includes('affirm');
 
   ////////////////////////////////////////////////
   // Step 1: initiate order                     //
@@ -209,10 +221,12 @@ export const processCheckoutWithPayment = (orderParams, extraPaymentParams) => {
     // fnParams should be { listingId, deliveryMethod?, quantity?, bookingDates?, paymentMethod?.setupPaymentMethodForSaving?, protectedData }
     const hasPaymentIntents = storedTx.attributes.protectedData?.stripePaymentIntents;
 
-    const requestTransition =
-      storedTx?.attributes?.lastTransition === process.transitions.INQUIRE
-        ? process.transitions.REQUEST_PAYMENT_AFTER_INQUIRY
-        : process.transitions.REQUEST_PAYMENT;
+    const requestTransition = getInitiateTransition(
+      isAffirm ? 'affirm' : 'card',
+      storedTx?.attributes?.lastTransition,
+      process
+    );
+
     const isPrivileged = process.isPrivileged(requestTransition);
 
     // If paymentIntent exists, order has been initiated previously.
@@ -248,10 +262,19 @@ export const processCheckoutWithPayment = (orderParams, extraPaymentParams) => {
 
     const { stripe, card, billingDetails, paymentIntent } = extraPaymentParams;
     const stripeElementMaybe = !isPaymentFlowUseSavedCard ? { card } : {};
+    const redirectUrl = `${window.location.origin}/order/${order?.id.uuid}`;
 
     // Note: For basic USE_SAVED_CARD scenario, we have set it already on API side, when PaymentIntent was created.
     // However, the payment_method is save here for USE_SAVED_CARD flow if customer first attempted onetime payment
-    const paymentParams = !isPaymentFlowUseSavedCard
+    // For Affirm, we don't need to pass card or billing details
+    const paymentParams = isAffirm
+      ? {
+          payment_method: {
+            billing_details: billingDetails,
+          },
+          return_url: redirectUrl,
+        }
+      : !isPaymentFlowUseSavedCard
       ? {
           payment_method: {
             billing_details: billingDetails,
@@ -266,6 +289,7 @@ export const processCheckoutWithPayment = (orderParams, extraPaymentParams) => {
       stripe,
       ...stripeElementMaybe,
       paymentParams,
+      mode: isAffirm ? 'affirm' : 'card',
     };
 
     return hasPaymentIntentUserActionsDone
@@ -334,13 +358,15 @@ export const processCheckoutWithPayment = (orderParams, extraPaymentParams) => {
   //   .then(result => fnConfirmPayment({...result}))
   const applyAsync = (acc, val) => acc.then(val);
   const composeAsync = (...funcs) => x => funcs.reduce(applyAsync, Promise.resolve(x));
-  const handlePaymentIntentCreation = composeAsync(
-    fnRequestPayment,
-    fnConfirmCardPayment,
-    fnConfirmPayment,
-    fnSendMessage,
-    fnSavePaymentMethod
-  );
+  const handlePaymentIntentCreation = isAffirm
+    ? composeAsync(fnRequestPayment, fnConfirmCardPayment)
+    : composeAsync(
+        fnRequestPayment,
+        fnConfirmCardPayment,
+        fnConfirmPayment,
+        fnSendMessage,
+        fnSavePaymentMethod
+      );
 
   return handlePaymentIntentCreation(orderParams);
 };
