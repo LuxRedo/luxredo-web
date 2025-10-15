@@ -20,6 +20,7 @@ import {
   IconSpinner,
   SavedCardDetails,
   StripePaymentAddress,
+  FieldSelect,
 } from '../../../components';
 
 import ShippingDetails from '../ShippingDetails/ShippingDetails';
@@ -435,6 +436,10 @@ class StripePaymentForm extends Component {
       stripePublishableKey,
       marketplaceName,
       isBooking,
+      values,
+      onSelectPaymentMethodType,
+      disablePaymentMethodTypeChange,
+      disabledButton,
     } = formRenderProps;
 
     this.finalFormAPI = formApi;
@@ -443,6 +448,8 @@ class StripePaymentForm extends Component {
     const billingDetailsNeeded = !(hasHandledCardPayment || confirmPaymentError);
 
     const { cardValueValid, paymentMethod } = this.state;
+    const { paymentMethodType } = values;
+    const isAffirm = paymentMethodType === 'affirm';
     const hasDefaultPaymentMethod = ensuredDefaultPaymentMethod.id;
     const selectedPaymentMethod = getPaymentMethod(paymentMethod, hasDefaultPaymentMethod);
     const { onetimePaymentNeedsAttention, showOnetimePaymentFields } = checkOnetimePaymentFields(
@@ -452,7 +459,11 @@ class StripePaymentForm extends Component {
       hasHandledCardPayment
     );
 
-    const submitDisabled = invalid || onetimePaymentNeedsAttention || submitInProgress;
+    const submitDisabled =
+      invalid ||
+      (paymentMethodType === 'card' && onetimePaymentNeedsAttention) ||
+      submitInProgress ||
+      disabledButton;
     const hasCardError = this.state.error && !submitInProgress;
     const hasPaymentErrors = confirmCardPaymentError || confirmPaymentError;
     const classes = classNames(rootClassName || css.root, className);
@@ -520,85 +531,99 @@ class StripePaymentForm extends Component {
     };
     const isBookingYesNo = isBooking ? 'yes' : 'no';
 
-    return hasStripeKey ? (
-      <Form className={classes} onSubmit={handleSubmit} enforcePagePreloadFor="OrderDetailsPage">
-        {billingDetailsNeeded && !loadingData ? (
-          <React.Fragment>
-            {hasDefaultPaymentMethod ? (
-              <PaymentMethodSelector
+    const cardContent =
+      billingDetailsNeeded && !loadingData ? (
+        <React.Fragment>
+          {hasDefaultPaymentMethod ? (
+            <PaymentMethodSelector
+              cardClasses={cardClasses}
+              formId={formId}
+              defaultPaymentMethod={ensuredDefaultPaymentMethod}
+              changePaymentMethod={this.changePaymentMethod}
+              handleStripeElementRef={this.handleStripeElementRef}
+              hasCardError={hasCardError}
+              error={this.state.error}
+              paymentMethod={selectedPaymentMethod}
+              intl={intl}
+              marketplaceName={marketplaceName}
+            />
+          ) : (
+            <React.Fragment>
+              <Heading as="h3" rootClassName={css.heading}>
+                <FormattedMessage id="StripePaymentForm.paymentHeading" />
+              </Heading>
+              <OneTimePaymentWithCardElement
                 cardClasses={cardClasses}
                 formId={formId}
-                defaultPaymentMethod={ensuredDefaultPaymentMethod}
-                changePaymentMethod={this.changePaymentMethod}
                 handleStripeElementRef={this.handleStripeElementRef}
                 hasCardError={hasCardError}
                 error={this.state.error}
-                paymentMethod={selectedPaymentMethod}
                 intl={intl}
                 marketplaceName={marketplaceName}
               />
-            ) : (
-              <React.Fragment>
-                <Heading as="h3" rootClassName={css.heading}>
-                  <FormattedMessage id="StripePaymentForm.paymentHeading" />
-                </Heading>
-                <OneTimePaymentWithCardElement
-                  cardClasses={cardClasses}
-                  formId={formId}
-                  handleStripeElementRef={this.handleStripeElementRef}
-                  hasCardError={hasCardError}
-                  error={this.state.error}
-                  intl={intl}
-                  marketplaceName={marketplaceName}
+            </React.Fragment>
+          )}
+
+          {showOnetimePaymentFields ? (
+            <div className={css.billingDetails}>
+              <Heading as="h3" rootClassName={css.heading}>
+                <FormattedMessage id="StripePaymentForm.billingDetails" />
+              </Heading>
+
+              {askShippingDetails ? (
+                <FieldCheckbox
+                  className={css.sameAddressCheckbox}
+                  textClassName={css.sameAddressLabel}
+                  id="sameAddressCheckbox"
+                  name="sameAddressCheckbox"
+                  label={intl.formatMessage({
+                    id: 'StripePaymentForm.sameBillingAndShippingAddress',
+                  })}
+                  value="sameAddress"
+                  useSuccessColor
+                  onChange={handleSameAddressCheckbox}
                 />
-              </React.Fragment>
-            )}
+              ) : null}
 
-            {showOnetimePaymentFields ? (
-              <div className={css.billingDetails}>
-                <Heading as="h3" rootClassName={css.heading}>
-                  <FormattedMessage id="StripePaymentForm.billingDetails" />
-                </Heading>
+              <FieldTextInput
+                className={css.field}
+                type="text"
+                id="name"
+                name="name"
+                autoComplete="cc-name"
+                label={billingDetailsNameLabel}
+                placeholder={billingDetailsNamePlaceholder}
+              />
 
-                {askShippingDetails ? (
-                  <FieldCheckbox
-                    className={css.sameAddressCheckbox}
-                    textClassName={css.sameAddressLabel}
-                    id="sameAddressCheckbox"
-                    name="sameAddressCheckbox"
-                    label={intl.formatMessage({
-                      id: 'StripePaymentForm.sameBillingAndShippingAddress',
-                    })}
-                    value="sameAddress"
-                    useSuccessColor
-                    onChange={handleSameAddressCheckbox}
-                  />
-                ) : null}
+              {billingAddress}
+            </div>
+          ) : null}
+        </React.Fragment>
+      ) : loadingData ? (
+        <p className={css.spinner}>
+          <IconSpinner />
+        </p>
+      ) : null;
 
-                <FieldTextInput
-                  className={css.field}
-                  type="text"
-                  id="name"
-                  name="name"
-                  autoComplete="cc-name"
-                  label={billingDetailsNameLabel}
-                  placeholder={billingDetailsNamePlaceholder}
-                />
+    return hasStripeKey ? (
+      <Form className={classes} onSubmit={handleSubmit} enforcePagePreloadFor="OrderDetailsPage">
+        <FieldSelect
+          id="paymentMethodType"
+          name="paymentMethodType"
+          onChange={onSelectPaymentMethodType}
+          disabled={disablePaymentMethodTypeChange}
+          label={intl.formatMessage({ id: 'StripePaymentForm.paymentMethodTypeLabel' })}
+        >
+          <option value="card">Card</option>
+          <option value="affirm">Affirm</option>
+        </FieldSelect>
 
-                {billingAddress}
-              </div>
-            ) : null}
-          </React.Fragment>
-        ) : loadingData ? (
-          <p className={css.spinner}>
-            <IconSpinner />
-          </p>
-        ) : null}
+        <div className={classNames({ [css.cardContentHidden]: isAffirm })}>{cardContent}</div>
 
         {initiateOrderError ? (
           <span className={css.errorMessage}>{initiateOrderError.message}</span>
         ) : null}
-        {showInitialMessageInput ? (
+        {showInitialMessageInput && !isAffirm ? (
           <div>
             <Heading as="h3" rootClassName={css.heading}>
               <FormattedMessage id="StripePaymentForm.messageHeading" />

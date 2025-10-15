@@ -1,4 +1,5 @@
 const { getIntegrationSdk } = require('../../api-util/sdk');
+const { TransactionServices } = require('../../services');
 
 const paymentMethodsAvailable = ['affirm'];
 
@@ -17,11 +18,15 @@ const confirmPaymentTransition = async data => {
       include: ['provider', 'listing'],
     });
 
+    const transactionId = txRes.data.data.id.uuid;
+
     await iSdk.transactions.transition({
-      id: txRes.data.data.id.uuid,
+      id: transactionId,
       transition: 'transition/confirm-push-payment',
       params: {},
     });
+
+    await TransactionServices.createShippingLabelWithOrder(transactionId);
   } catch (error) {
     console.log('Failed to update confirm payment transition', error);
   }

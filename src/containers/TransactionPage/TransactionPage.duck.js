@@ -89,12 +89,9 @@ export const FETCH_LINE_ITEMS_REQUEST = 'app/TransactionPage/FETCH_LINE_ITEMS_RE
 export const FETCH_LINE_ITEMS_SUCCESS = 'app/TransactionPage/FETCH_LINE_ITEMS_SUCCESS';
 export const FETCH_LINE_ITEMS_ERROR = 'app/TransactionPage/FETCH_LINE_ITEMS_ERROR';
 
-export const FETCH_SHIPPING_LABEL_DETAILS_REQUEST =
-  'app/TransactionPage/FETCH_SHIPPING_LABEL_DETAILS_REQUEST';
-export const FETCH_SHIPPING_LABEL_DETAILS_SUCCESS =
-  'app/TransactionPage/FETCH_SHIPPING_LABEL_DETAILS_SUCCESS';
-export const FETCH_SHIPPING_LABEL_DETAILS_ERROR =
-  'app/TransactionPage/FETCH_SHIPPING_LABEL_DETAILS_ERROR';
+export const CREATE_SHIPPING_LABEL_REQUEST = 'app/TransactionPage/CREATE_SHIPPING_LABEL_REQUEST';
+export const CREATE_SHIPPING_LABEL_SUCCESS = 'app/TransactionPage/CREATE_SHIPPING_LABEL_SUCCESS';
+export const CREATE_SHIPPING_LABEL_ERROR = 'app/TransactionPage/CREATE_SHIPPING_LABEL_ERROR';
 
 // ================ Reducer ================ //
 
@@ -139,8 +136,8 @@ const initialState = {
   lineItems: null,
   fetchLineItemsInProgress: false,
   shippingLabelDetails: null,
-  fetchShippingLabelDetailsInProgress: false,
-  fetchShippingLabelDetailsError: null,
+  createShippingLabelInProgress: false,
+  createShippingLabelError: null,
 };
 
 // Merge entity arrays using ids, so that conflicting items in newer array (b) overwrite old values (a).
@@ -310,23 +307,23 @@ export default function transactionPageReducer(state = initialState, action = {}
     case FETCH_LINE_ITEMS_ERROR:
       return { ...state, fetchLineItemsInProgress: false, fetchLineItemsError: payload };
 
-    case FETCH_SHIPPING_LABEL_DETAILS_REQUEST:
+    case CREATE_SHIPPING_LABEL_REQUEST:
       return {
         ...state,
-        fetchShippingLabelDetailsInProgress: true,
-        fetchShippingLabelDetailsError: null,
+        createShippingLabelInProgress: true,
+        createShippingLabelError: null,
       };
-    case FETCH_SHIPPING_LABEL_DETAILS_SUCCESS:
+    case CREATE_SHIPPING_LABEL_SUCCESS:
       return {
         ...state,
-        fetchShippingLabelDetailsInProgress: false,
+        createShippingLabelInProgress: false,
         shippingLabelDetails: payload,
       };
-    case FETCH_SHIPPING_LABEL_DETAILS_ERROR:
+    case CREATE_SHIPPING_LABEL_ERROR:
       return {
         ...state,
-        fetchShippingLabelDetailsInProgress: false,
-        fetchShippingLabelDetailsError: payload,
+        createShippingLabelInProgress: false,
+        createShippingLabelError: payload,
       };
     default:
       return state;
@@ -417,15 +414,15 @@ export const fetchLineItemsError = error => ({
   payload: error,
 });
 
-export const fetchShippingLabelDetailsRequest = () => ({
-  type: FETCH_SHIPPING_LABEL_DETAILS_REQUEST,
+export const createShippingLabelRequest = () => ({
+  type: CREATE_SHIPPING_LABEL_REQUEST,
 });
-export const fetchShippingLabelDetailsSuccess = shippingLabelDetails => ({
-  type: FETCH_SHIPPING_LABEL_DETAILS_SUCCESS,
+export const createShippingLabelSuccess = shippingLabelDetails => ({
+  type: CREATE_SHIPPING_LABEL_SUCCESS,
   payload: shippingLabelDetails,
 });
-export const fetchShippingLabelDetailsError = error => ({
-  type: FETCH_SHIPPING_LABEL_DETAILS_ERROR,
+export const createShippingLabelError = error => ({
+  type: CREATE_SHIPPING_LABEL_ERROR,
   error: true,
   payload: error,
 });
@@ -653,18 +650,16 @@ export const fetchTransaction = (id, txRole, config) => (dispatch, getState, sdk
       const listing = denormalised[0];
       const transaction = denormalised[1];
       const processName = resolveLatestProcessName(transaction.attributes.processName);
+
       const shippingDetails = transaction.attributes.metadata?.shippingDetails;
       const hasEnoughTrackingValue =
         !!shippingDetails?.trackingNumber &&
         !!shippingDetails?.trackingUrl &&
         !!shippingDetails?.labelUrl;
 
-      if (!hasEnoughTrackingValue && shippingDetails?.transactionId) {
-        dispatch(fetchShippingLabelDetails(shippingDetails.transactionId));
-      } else {
-        dispatch(fetchShippingLabelDetailsSuccess(shippingDetails));
+      if (hasEnoughTrackingValue) {
+        dispatch(createShippingLabelSuccess(shippingDetails));
       }
-
       try {
         const process = getProcess(processName);
         const isInquiry = process.getState(transaction) === process.states.INQUIRY;
@@ -934,14 +929,14 @@ export const fetchTransactionLineItems = ({ orderData, listingId, isOwnListing }
     });
 };
 
-export const fetchShippingLabelDetails = txId => async dispatch => {
+export const createShippingLabel = txId => async dispatch => {
   try {
-    dispatch(fetchShippingLabelDetailsRequest());
-    const shippingLabelDetails = await AddressApis.getShippingLabel({ transactionId: txId });
-    dispatch(fetchShippingLabelDetailsSuccess(shippingLabelDetails));
+    dispatch(createShippingLabelRequest());
+    const shippingLabelDetails = await AddressApis.createShippingLabel({ transactionId: txId });
+    dispatch(createShippingLabelSuccess(shippingLabelDetails));
     return shippingLabelDetails;
   } catch (error) {
-    dispatch(fetchShippingLabelDetailsError(storableError(error)));
+    dispatch(createShippingLabelError(storableError(error)));
   }
 };
 

@@ -1229,5 +1229,6 @@
   "ShippingAddressForm.updateButton": "Update address",
   "ShippingMethodForm.addressFromError": "There was some issues with the address of provider.",
   "ShippingMethodForm.addressToError": "There was some issues with the address of customer.",
-  "ShippingMethodForm.noRatesWithErrors": "No shipping rates found. Please check the address again or contact support."
+  "ShippingMethodForm.noRatesWithErrors": "No shipping rates found. Please check the address again or contact support.",
+  "StripePaymentForm.paymentMethodTypeLabel": "Payment method type"
 }

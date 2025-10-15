@@ -22,6 +22,7 @@ import {
   bookingDatesMaybe,
   getBillingDetails,
   getFormattedTotalPrice,
+  getInitiateTransition,
   getShippingDetailsMaybe,
   getTransactionTypeData,
   hasDefaultPaymentMethod,
@@ -112,21 +113,29 @@ const getOrderParams = (pageData, shippingDetails, optionalPaymentParams, config
   const deliveryMethod = pageData.orderData?.deliveryMethod;
   const deliveryMethodMaybe = deliveryMethod ? { deliveryMethod } : {};
   const { listingType, unitType, priceVariants } = pageData?.listing?.attributes?.publicData || {};
-
   // price variant data for fixed duration bookings
   const priceVariantName = pageData.orderData?.priceVariantName;
   const priceVariantNameMaybe = priceVariantName ? { priceVariantName } : {};
   const priceVariant = priceVariants?.find(pv => pv.name === priceVariantName);
   const priceVariantMaybe = priceVariant ? prefixPriceVariantProperties(priceVariant) : {};
-
+  const isAffirm = pageData.paymentMethodType === 'affirm';
+  const paymentMethodTypesMaybe =
+    pageData.paymentMethodType === 'affirm' ? { paymentMethodTypes: ['affirm'] } : {};
   const protectedDataMaybe = {
     protectedData: {
       ...getTransactionTypeData(listingType, unitType, config),
       ...deliveryMethodMaybe,
       ...shippingDetails,
       ...priceVariantMaybe,
+      paymentMethodType: pageData.paymentMethodType,
     },
   };
+
+  const optionalPaymentParamsMaybe = !isAffirm
+    ? {
+        ...optionalPaymentParams,
+      }
+    : {};
 
   // Note: Avoid misinterpreting the following logic as allowing arbitrary mixing of `quantity` and `seats`.
   // You can only pass either quantity OR seats and units to the orderParams object
@@ -145,7 +154,8 @@ const getOrderParams = (pageData, shippingDetails, optionalPaymentParams, config
     ...bookingDatesMaybe(pageData.orderData?.bookingDates),
     ...priceVariantNameMaybe,
     ...protectedDataMaybe,
-    ...optionalPaymentParams,
+    ...optionalPaymentParamsMaybe,
+    ...paymentMethodTypesMaybe,
   };
   return orderParams;
 };
@@ -168,14 +178,13 @@ const fetchSpeculatedTransactionIfNeeded = (orderParams, pageData, fetchSpeculat
   if (shouldFetchSpeculatedTransaction) {
     const processAlias = pageData.listing.attributes.publicData?.transactionProcessAlias;
     const transactionId = tx ? tx.id : null;
-    const isInquiryInPaymentProcess =
-      tx?.attributes?.lastTransition === process.transitions.INQUIRE;
-
-    const requestTransition = isInquiryInPaymentProcess
-      ? process.transitions.REQUEST_PAYMENT_AFTER_INQUIRY
-      : process.transitions.REQUEST_PAYMENT;
+    const paymentMethodTypes = orderParams.paymentMethodTypes;
+    const requestTransition = getInitiateTransition(
+      paymentMethodTypes?.includes('affirm') ? 'affirm' : 'card',
+      tx?.attributes?.lastTransition,
+      process
+    );
     const isPrivileged = process.isPrivileged(requestTransition);
-
     fetchSpeculatedTransaction(
       orderParams,
       processAlias,
@@ -256,9 +265,11 @@ const handleSubmit = (
     pageData,
     setPageData,
     sessionStorageKey,
+    onCreateShippingLabel,
   } = props;
   const { card, message, paymentMethod: selectedPaymentMethod, formValues } = values;
-  const { saveAfterOnetimePayment: saveAfterOnetimePaymentRaw } = formValues;
+
+  const { saveAfterOnetimePayment: saveAfterOnetimePaymentRaw, paymentMethodType } = formValues;
 
   const saveAfterOnetimePayment =
     Array.isArray(saveAfterOnetimePaymentRaw) && saveAfterOnetimePaymentRaw.length > 0;
@@ -308,7 +319,12 @@ const handleSubmit = (
 
   // These are the order parameters for the first payment-related transition
   // which is either initiate-transition or initiate-transition-after-enquiry
-  const orderParams = getOrderParams(pageData, { shippingAddress }, optionalPaymentParams, config);
+  const orderParams = getOrderParams(
+    { ...pageData, paymentMethodType },
+    { shippingAddress },
+    optionalPaymentParams,
+    config
+  );
 
   // There are multiple XHR calls that needs to be made against Stripe API and Sharetribe Marketplace API on checkout with payments
   processCheckoutWithPayment(
@@ -409,6 +425,7 @@ export const CheckoutPageWithPayment = props => {
   const [stripe, setStripe] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedShippingRate, setSelectedShippingRate] = useState(null);
+  const [selectedPaymentMethodType, setSelectedPaymentMethodType] = useState('card');
 
   const {
     scrollingDisabled,
@@ -433,15 +450,26 @@ export const CheckoutPageWithPayment = props => {
     fetchSpeculatedTransaction,
   } = props;
   const orderParams = {
-    ...getOrderParams(pageData, {}, {}, config),
+    ...getOrderParams(
+      { ...pageData, paymentMethodType: selectedPaymentMethodType },
+      {},
+      {},
+      config
+    ),
     shippingRateId: selectedShippingRate?.objectId,
   };
+
   const selectedShippingRateObjectId = selectedShippingRate?.objectId;
   useEffect(() => {
-    if (selectedShippingRateObjectId) {
+    if (selectedShippingRateObjectId && selectedPaymentMethodType) {
       fetchSpeculatedTransactionIfNeeded(orderParams, pageData, fetchSpeculatedTransaction);
     }
-  }, [JSON.stringify(orderParams), JSON.stringify(pageData), selectedShippingRateObjectId]);
+  }, [
+    JSON.stringify(orderParams),
+    JSON.stringify(pageData),
+    selectedShippingRateObjectId,
+    selectedPaymentMethodType,
+  ]);
 
   // Since the listing data is already given from the ListingPage
   // and stored to handle refreshes, it might not have the possible
@@ -457,6 +485,23 @@ export const CheckoutPageWithPayment = props => {
   const existingTransaction = ensureTransaction(transaction);
   const speculatedTransaction = ensureTransaction(speculatedTransactionMaybe, {}, null);
 
+  const process = processName ? getProcess(processName) : null;
+
+  const alreadyRequestPayment = existingTransaction?.attributes?.transitions?.some(tr =>
+    [
+      process.transitions.REQUEST_PAYMENT,
+      process.transitions.REQUEST_PAYMENT_AFTER_INQUIRY,
+      process.transitions.REQUEST_PUSH_PAYMENT,
+      process.transitions.REQUEST_PUSH_PAYMENT_AFTER_INQUIRY,
+    ].includes(tr.transition)
+  );
+
+  useEffect(() => {
+    if (!!alreadyRequestPayment) {
+      setCurrentStep(3);
+      setSelectedPaymentMethodType(existingTransaction.attributes.protectedData.paymentMethodType);
+    }
+  }, [alreadyRequestPayment]);
   // If existing transaction has line-items, it has gone through one of the request-payment transitions.
   // Otherwise, we try to rely on speculatedTransaction for order breakdown data.
   const tx =
@@ -514,7 +559,6 @@ export const CheckoutPageWithPayment = props => {
   const totalPrice =
     tx?.attributes?.lineItems?.length > 0 ? getFormattedTotalPrice(tx, intl) : null;
 
-  const process = processName ? getProcess(processName) : null;
   const transitions = process.transitions;
   const isPaymentExpired = hasPaymentExpired(existingTransaction, process, isClockInSync);
 
@@ -566,7 +610,14 @@ export const CheckoutPageWithPayment = props => {
   // If your marketplace works mostly in one country you can use initial values to select country automatically
   // e.g. {country: 'FI'}
 
-  const initialValuesForStripePayment = { name: userName, recipientName: userName };
+  const defaultPaymentMethodType =
+    existingTransaction?.attributes?.protectedData?.paymentMethodType;
+
+  const initialValuesForStripePayment = {
+    name: userName,
+    recipientName: userName,
+    paymentMethodType: defaultPaymentMethodType || 'card',
+  };
   const askShippingDetails =
     orderData?.deliveryMethod === 'shipping' &&
     !hasTransactionPassedPendingPayment(existingTransaction, process);
@@ -644,10 +695,13 @@ export const CheckoutPageWithPayment = props => {
             {showPaymentForm && (
               <ProgressStep
                 steps={[
-                  { title: intl.formatMessage({ id: 'ShippingAddressForm.title' }) },
+                  {
+                    title: intl.formatMessage({ id: 'ShippingAddressForm.title' }),
+                    disabled: !!alreadyRequestPayment,
+                  },
                   {
                     title: intl.formatMessage({ id: 'ShippingMethodForm.title' }),
-                    disabled: false,
+                    disabled: !!alreadyRequestPayment,
                   },
                   {
                     title: intl.formatMessage({ id: 'PaymentForm.title' }),
@@ -658,7 +712,7 @@ export const CheckoutPageWithPayment = props => {
                 onStepChange={setCurrentStep}
               >
                 <div className={css.formContainer}>
-                  {currentStep === 1 && (
+                  {currentStep === 1 && !alreadyRequestPayment && (
                     <ShippingDetailsForm
                       currentUser={currentUser}
                       onSubmit={onUpdateShippingAddress}
@@ -670,7 +724,7 @@ export const CheckoutPageWithPayment = props => {
                       disabledNextStep={!hasEnoughShippingAddressFields}
                     />
                   )}
-                  {currentStep === 2 && (
+                  {currentStep === 2 && !alreadyRequestPayment && (
                     <ShippingMethodForm
                       shipment={shipment}
                       getShippingRatesInProgress={getShippingRatesInProgress}
@@ -683,7 +737,7 @@ export const CheckoutPageWithPayment = props => {
                       }}
                     />
                   )}
-                  {currentStep === 3 && (
+                  {(currentStep === 3 || alreadyRequestPayment) && (
                     <StripePaymentForm
                       shippingAddress={shippingAddress}
                       className={css.paymentForm}
@@ -703,6 +757,7 @@ export const CheckoutPageWithPayment = props => {
                       formId="CheckoutPagePaymentForm"
                       authorDisplayName={listing?.author?.attributes?.profile?.displayName}
                       showInitialMessageInput={showInitialMessageInput}
+                      disablePaymentMethodTypeChange={!!alreadyRequestPayment}
                       initialValues={initialValuesForStripePayment}
                       initiateOrderError={initiateOrderError}
                       confirmCardPaymentError={confirmCardPaymentError}
@@ -728,6 +783,8 @@ export const CheckoutPageWithPayment = props => {
                       marketplaceName={config.marketplaceName}
                       isBooking={isBookingProcessAlias(transactionProcessAlias)}
                       isFuzzyLocation={config.maps.fuzzy.enabled}
+                      onSelectPaymentMethodType={setSelectedPaymentMethodType}
+                      disabledButton={reSpeculateInProgress}
                     />
                   )}
                 </div>

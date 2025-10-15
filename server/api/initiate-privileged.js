@@ -1,4 +1,3 @@
-const { denormalisedResponseEntities } = require('../api-util/format');
 const { transactionLineItems } = require('../api-util/lineItems');
 const {
   getSdk,
@@ -7,7 +6,7 @@ const {
   serialize,
   fetchCommission,
 } = require('../api-util/sdk');
-const { ShippingServices, TransactionServices } = require('../services');
+const { ShippingServices } = require('../services');
 
 /**
  * Initiate a privileged transaction with optional shipping
@@ -75,11 +74,6 @@ const initiatePrivilegedTransaction = async (req, res) => {
       : await trustedSdk.transactions.initiate(body, queryParams);
 
     const { status, statusText, data } = apiResponse;
-
-    if (!isSpeculative) {
-      const [transaction] = denormalisedResponseEntities(apiResponse);
-      await TransactionServices.handleAfterInitiateTransaction(orderData, bodyParams, transaction);
-    }
 
     // Send response
     res
