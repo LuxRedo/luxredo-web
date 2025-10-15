@@ -246,8 +246,9 @@ export const retrievePaymentIntent = params => dispatch => {
 export const confirmCardPayment = params => dispatch => {
   // It's required to use the same instance of Stripe as where the card has been created
   // so that's why Stripe needs to be passed here and we can't create a new instance.
-  const { stripe, paymentParams, stripePaymentIntentClientSecret } = params;
+  const { stripe, paymentParams, stripePaymentIntentClientSecret, mode = 'affirm' } = params;
   const transactionId = params.orderId;
+  const isAffirm = mode === 'affirm';
 
   dispatch(confirmCardPaymentRequest());
 
@@ -258,8 +259,13 @@ export const confirmCardPayment = params => dispatch => {
     ? [stripePaymentIntentClientSecret, paymentParams]
     : [stripePaymentIntentClientSecret];
 
-  const doConfirmCardPayment = () =>
-    stripe.confirmCardPayment(...args).then(response => {
+  const doConfirmCardPayment = () => {
+    let stripeFn = stripe.confirmCardPayment;
+    if (isAffirm) {
+      stripeFn = stripe.confirmAffirmPayment;
+    }
+
+    return stripeFn(...args).then(response => {
       if (response.error) {
         return Promise.reject(response);
       } else {
@@ -267,6 +273,7 @@ export const confirmCardPayment = params => dispatch => {
         return { ...response, transactionId };
       }
     });
+  };
 
   // First, check if the payment intent has already been confirmed and it just requires capture.
   return stripe
