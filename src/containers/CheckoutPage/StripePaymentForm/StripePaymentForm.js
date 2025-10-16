@@ -383,7 +383,8 @@ class StripePaymentForm extends Component {
       hasHandledCardPayment,
       defaultPaymentMethod,
     } = this.props;
-    const { initialMessage } = values;
+    const { initialMessage, paymentMethodType } = values;
+    const isAffirm = paymentMethodType === 'affirm';
     const { cardValueValid, paymentMethod } = this.state;
     const hasDefaultPaymentMethod = defaultPaymentMethod?.id;
     const selectedPaymentMethod = getPaymentMethod(paymentMethod, hasDefaultPaymentMethod);
@@ -394,7 +395,7 @@ class StripePaymentForm extends Component {
       hasHandledCardPayment
     );
 
-    if (inProgress || onetimePaymentNeedsAttention) {
+    if (inProgress || (!isAffirm && onetimePaymentNeedsAttention)) {
       // Already submitting or card value incomplete/invalid
       return;
     }
@@ -441,7 +442,6 @@ class StripePaymentForm extends Component {
       disablePaymentMethodTypeChange,
       disabledButton,
     } = formRenderProps;
-
     this.finalFormAPI = formApi;
 
     const ensuredDefaultPaymentMethod = ensurePaymentMethodCard(defaultPaymentMethod);
@@ -460,10 +460,8 @@ class StripePaymentForm extends Component {
     );
 
     const submitDisabled =
-      invalid ||
-      (paymentMethodType === 'card' && onetimePaymentNeedsAttention) ||
-      submitInProgress ||
-      disabledButton;
+      invalid || (!isAffirm && onetimePaymentNeedsAttention) || submitInProgress || disabledButton;
+
     const hasCardError = this.state.error && !submitInProgress;
     const hasPaymentErrors = confirmCardPaymentError || confirmPaymentError;
     const classes = classNames(rootClassName || css.root, className);
@@ -564,7 +562,7 @@ class StripePaymentForm extends Component {
             </React.Fragment>
           )}
 
-          {showOnetimePaymentFields ? (
+          {showOnetimePaymentFields && !isAffirm ? (
             <div className={css.billingDetails}>
               <Heading as="h3" rootClassName={css.heading}>
                 <FormattedMessage id="StripePaymentForm.billingDetails" />
@@ -610,7 +608,10 @@ class StripePaymentForm extends Component {
         <FieldSelect
           id="paymentMethodType"
           name="paymentMethodType"
-          onChange={onSelectPaymentMethodType}
+          onChange={e => {
+            onSelectPaymentMethodType(e);
+            formApi.change('sameAddressCheckbox', undefined);
+          }}
           disabled={disablePaymentMethodTypeChange}
           label={intl.formatMessage({ id: 'StripePaymentForm.paymentMethodTypeLabel' })}
         >

@@ -265,8 +265,8 @@ const handleSubmit = (
     pageData,
     setPageData,
     sessionStorageKey,
-    onCreateShippingLabel,
   } = props;
+
   const { card, message, paymentMethod: selectedPaymentMethod, formValues } = values;
 
   const { saveAfterOnetimePayment: saveAfterOnetimePaymentRaw, paymentMethodType } = formValues;
