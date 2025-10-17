@@ -44,7 +44,12 @@ const SectionDetailsMaybe = props => {
     return filteredConfigs;
   };
 
-  const existingListingFields = listingFieldConfigs.reduce(pickListingFields, []);
+  const existingListingFields = listingFieldConfigs
+    .reduce(pickListingFields, [])
+    .filter(
+      elm =>
+        !['weight', 'length', 'height', 'width', 'weight_unit', 'dimension_unit'].includes(elm.key)
+    );
 
   return existingListingFields.length > 0 ? (
     <section className={css.sectionDetails}>
